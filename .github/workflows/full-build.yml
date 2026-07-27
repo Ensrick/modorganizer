@@ -1,0 +1,80 @@
+name: Build Full ModOrganizer 2 Distribution
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout mob
+        uses: actions/checkout@v4
+        with:
+          repository: ModOrganizer2/mob
+          path: mob
+
+      - name: Read Qt version
+        id: qt
+        shell: pwsh
+        run: |
+          $version = (Get-Content mob/mob.ini | Select-String -Raw '^qt\s+=').Split('= ')[1]
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ steps.qt.outputs.version }}
+          arch: win64_msvc2022_64
+          modules: qtimageformats qtpositioning qtserialport qtwebchannel qtwebengine qtwebsockets qtnetworkauth
+          aqtsource: git+https://github.com/Holt59/aqtinstall.git
+          cache: true
+
+      - name: Configure dependency cache
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\vcpkg-cache" | Out-Null
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+          "VCPKG_BINARY_SOURCES=clear;files,$env:GITHUB_WORKSPACE\vcpkg-cache,readwrite" >> $env:GITHUB_ENV
+
+      - name: Restore dependency cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-cache
+          key: mo2-vcpkg-${{ runner.os }}-${{ hashFiles('mob/vcpkg.json', 'mob/vcpkg-configuration.json') }}
+          restore-keys: |
+            mo2-vcpkg-${{ runner.os }}-
+
+      - name: Build mob
+        shell: pwsh
+        working-directory: mob
+        run: ./bootstrap.ps1
+
+      - name: Build complete distribution from source
+        shell: pwsh
+        working-directory: mob
+        run: |
+          ./mob.exe `
+            --destination "$env:GITHUB_WORKSPACE\full-build" `
+            --set "modorganizer:task/mo_org=Ensrick" `
+            --set "modorganizer:task/mo_branch=master" `
+            --set "paths/qt_install=$env:QT_ROOT_DIR\msvc2022_64" `
+            build
+
+      - name: Verify distribution
+        shell: pwsh
+        run: |
+          $exe = Get-Item "$env:GITHUB_WORKSPACE\full-build\install\bin\ModOrganizer.exe"
+          Write-Output "ModOrganizer version: $($exe.VersionInfo.ProductVersion)"
+          if (!(Test-Path "$env:GITHUB_WORKSPACE\full-build\install\bin\plugins\game_skyrimse.dll")) {
+            throw "Skyrim Special Edition game plugin is missing."
+          }
+
+      - name: Package full distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: modorganizer-full
+          path: full-build/install/bin
+          if-no-files-found: error
+          compression-level: 6
