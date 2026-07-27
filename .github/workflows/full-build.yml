@@ -59,7 +59,7 @@ jobs:
             --destination "$env:GITHUB_WORKSPACE\full-build" `
             --set "modorganizer:task/mo_org=Ensrick" `
             --set "modorganizer:task/mo_branch=master" `
-            --set "paths/qt_install=$env:QT_ROOT_DIR\msvc2022_64" `
+            --set "paths/qt_install=$env:QT_ROOT_DIR" `
             build
 
       - name: Verify distribution
