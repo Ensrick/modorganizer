@@ -28,7 +28,6 @@ jobs:
           version: ${{ steps.qt.outputs.version }}
           arch: win64_msvc2022_64
           modules: qtimageformats qtpositioning qtserialport qtwebchannel qtwebengine qtwebsockets qtnetworkauth
-          aqtsource: git+https://github.com/Holt59/aqtinstall.git
           cache: true
 
       - name: Configure dependency cache
