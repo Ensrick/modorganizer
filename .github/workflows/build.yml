@@ -1,6 +1,7 @@
 name: Build ModOrganizer 2
 
 on:
+  workflow_dispatch:
   push:
     branches: [master]
   pull_request:
