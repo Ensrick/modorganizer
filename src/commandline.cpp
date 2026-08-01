@@ -397,6 +397,11 @@ bool CommandLine::multiple() const
   return (m_vm.count("multiple") > 0);
 }
 
+bool CommandLine::nonInteractive() const
+{
+  return m_command && m_command->name() == "headless-run";
+}
+
 std::optional<QString> CommandLine::profile() const
 {
   if (m_vm.count("profile")) {

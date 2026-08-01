@@ -340,6 +340,10 @@ public:
   //
   bool multiple() const;
 
+  // whether the active command must never display interactive error dialogs
+  //
+  bool nonInteractive() const;
+
   // profile override (-p)
   //
   std::optional<QString> profile() const;

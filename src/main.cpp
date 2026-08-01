@@ -58,6 +58,14 @@ int run(int argc, char* argv[])
       return 0;
     }
 
+    if (cl.nonInteractive()) {
+      env::Console console;
+      std::cerr << "{\"ok\":false,\"operation\":\"headless-run\","
+                   "\"error\":\"another Mod Organizer process is running\","
+                   "\"exitCode\":75}\n";
+      return 75;
+    }
+
     QMessageBox::information(
         nullptr, QObject::tr("Mod Organizer"),
         QObject::tr("An instance of Mod Organizer is already running"));
@@ -136,6 +144,19 @@ int run(int argc, char* argv[])
 
       return r;
     } catch (const std::exception& e) {
+      if (cl.nonInteractive()) {
+        env::Console console;
+        const QString escaped = QString::fromUtf8(e.what())
+                                    .replace('\\', "\\\\")
+                                    .replace('"', "\\\"")
+                                    .replace('\n', "\\n")
+                                    .replace('\r', "\\r");
+        std::cerr << QString("{\"ok\":false,\"operation\":\"headless-run\","
+                             "\"error\":\"%1\",\"exitCode\":70}\n")
+                         .arg(escaped)
+                         .toStdString();
+        return 70;
+      }
       reportError(e.what());
       return 1;
     }
