@@ -69,6 +69,24 @@ QString absoluteClean(const QString& path)
   return QDir::cleanPath(QFileInfo(path).absoluteFilePath());
 }
 
+QString detectGameEdition(const QString& gamePath)
+{
+  const QString normalized = QDir::fromNativeSeparators(gamePath).toLower();
+  if (normalized.contains("/steamapps/common/")) {
+    return "Steam";
+  }
+
+  const QDir gameDirectory(gamePath);
+  if (gameDirectory.exists(".egstore")) {
+    return "Epic";
+  }
+  if (gameDirectory.exists("Galaxy64.dll") ||
+      !gameDirectory.entryList({"goggame-*.info"}, QDir::Files).isEmpty()) {
+    return "GOG";
+  }
+  return {};
+}
+
 QString canonicalForCompare(const QString& path)
 {
   QString result = QDir::fromNativeSeparators(absoluteClean(path));
@@ -779,7 +797,8 @@ QByteArray runProcess(const QString& program, const QStringList& arguments,
 }
 
 void initInstance(const InstanceContext& context, const QString& gamePath,
-                  const QString& gameName, bool dryRun)
+                  const QString& gameName, const QString& requestedGameEdition,
+                  bool dryRun)
 {
   if (QFileInfo::exists(context.iniPath)) {
     throw Failure(ExCantCreat,
@@ -801,8 +820,14 @@ void initInstance(const InstanceContext& context, const QString& gamePath,
   ensureProfileFiles(QDir(context.profiles).filePath("Default"));
 
   QSettings settings(context.iniPath, QSettings::IniFormat);
+  const QString gameEdition = requestedGameEdition.isEmpty()
+                                  ? detectGameEdition(gamePath)
+                                  : requestedGameEdition;
   settings.setValue("gameName", gameName);
   settings.setValue("gamePath", QDir::toNativeSeparators(gamePath).toUtf8());
+  if (!gameEdition.isEmpty()) {
+    settings.setValue("game_edition", gameEdition);
+  }
   settings.setValue("selected_profile", QByteArray("Default"));
   settings.setValue("Settings/base_directory", QDir::toNativeSeparators(context.root));
   settings.setValue("Settings/download_directory", "%BASE_DIR%/downloads");
@@ -975,6 +1000,9 @@ int main(int argc, char* argv[])
       {"lock-timeout", "Milliseconds to wait for the instance lock.", "ms", "30000"},
       {"game-name", "MO2 game plugin name used by init.", "name",
        "Skyrim Special Edition"},
+      {"game-edition",
+       "MO2 game edition used by init (auto-detects Steam, GOG, or Epic).",
+       "edition"},
       {"clone", "Profile to clone.", "profile"},
       {"select", "Select a newly-created profile."},
       {"enable", "Enable a staged/installed mod in the selected profile."},
@@ -1026,13 +1054,17 @@ int main(int argc, char* argv[])
       if (operands.size() != 1) {
         throw Failure(ExUsage, "init requires GAME_PATH");
       }
-      initInstance(context, absoluteClean(operands[0]), parser.value("game-name"),
-                   dryRun);
+      const QString gamePath = absoluteClean(operands[0]);
+      const QString gameEdition = parser.value("game-edition").isEmpty()
+                                      ? detectGameEdition(gamePath)
+                                      : parser.value("game-edition");
+      initInstance(context, gamePath, parser.value("game-name"), gameEdition, dryRun);
       emitJson({{"ok", true},
                 {"operation", "init"},
                 {"dryRun", dryRun},
                 {"instanceRoot", context.root},
-                {"gamePath", absoluteClean(operands[0])}});
+                {"gamePath", gamePath},
+                {"gameEdition", gameEdition}});
       return 0;
     }
 

@@ -27,7 +27,7 @@ participate in that lock.
 ## Core commands
 
 ```text
-MO2Headless init GAME_PATH [--game-name NAME]
+MO2Headless init GAME_PATH [--game-name NAME] [--game-edition EDITION]
 MO2Headless status
 MO2Headless profile-list
 MO2Headless profile-create NAME [--clone PROFILE] [--select]
@@ -58,6 +58,10 @@ priority zero loads first.
 `run` starts the sibling `ModOrganizer.exe headless-run` command. MO2 initializes
 the selected game plugin and USVFS but returns before constructing its main
 window. The child program's real exit code is propagated.
+
+`init` auto-detects Steam, GOG, and Epic editions from the game directory. Use
+`--game-edition` to override the detected value or provide one for an
+unrecognized layout.
 
 ## Deterministic FOMOD resolution
 
