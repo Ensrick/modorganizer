@@ -910,8 +910,8 @@ void restoreTransaction(const InstanceContext& context, const QString& id, bool 
   }
 
   const auto moves = manifest["moves"].toArray();
-  for (auto it = moves.crbegin(); it != moves.crend(); ++it) {
-    const auto move    = it->toObject();
+  for (qsizetype i = moves.size(); i-- > 0;) {
+    const auto move    = moves.at(i).toObject();
     const QString from = absoluteClean(move["from"].toString());
     const QString to   = absoluteClean(move["to"].toString());
     if (!isManagedTransactionPath(from, context) ||
@@ -1184,7 +1184,7 @@ int main(int argc, char* argv[])
           throw Failure(ExDataErr, "mod priority must be a non-negative integer");
         }
         const auto entry    = entries.takeAt(index);
-        priority            = std::min(priority, entries.size());
+        priority            = std::min(priority, static_cast<int>(entries.size()));
         const int fileIndex = entries.size() - priority;
         entries.insert(fileIndex, entry);
       } else {
@@ -1288,7 +1288,7 @@ int main(int argc, char* argv[])
         if (!okay || priority < 0) {
           throw Failure(ExDataErr, "priority must be a non-negative integer");
         }
-        priority = std::min(priority, entries.size());
+        priority = std::min(priority, static_cast<int>(entries.size()));
       }
       entries.insert(entries.size() - priority, entry);
       tx.write(context.modListPath(), serializeModList(entries));
@@ -1499,7 +1499,7 @@ int main(int argc, char* argv[])
           throw Failure(ExDataErr, "plugin priority must be a non-negative integer");
         }
         const auto entry = entries.takeAt(index);
-        priority         = std::min(priority, entries.size());
+        priority         = std::min(priority, static_cast<int>(entries.size()));
         entries.insert(priority, entry);
       } else {
         entries[index].enabled = command == "plugin-enable";
