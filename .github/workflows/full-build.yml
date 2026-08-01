@@ -58,7 +58,7 @@ jobs:
           ./mob.exe `
             --destination "$env:GITHUB_WORKSPACE\full-build" `
             --set "modorganizer:task/mo_org=Ensrick" `
-            --set "modorganizer:task/mo_branch=master" `
+            --set "modorganizer:task/mo_branch=ensrick/headless-controller" `
             --set "paths/qt_install=$env:QT_ROOT_DIR" `
             build
 
