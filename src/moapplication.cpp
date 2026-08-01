@@ -45,6 +45,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <log.h>
 #include <report.h>
 #include <scopeguard.h>
+#include <stdexcept>
 #include <utility.h>
 
 // see addDllsToPath() below
@@ -179,7 +180,8 @@ void MOApplication::firstTimeSetup(MOMultiProcess& multiProcess)
       Qt::QueuedConnection);
 }
 
-int MOApplication::setup(MOMultiProcess& multiProcess, bool forceSelect)
+int MOApplication::setup(MOMultiProcess& multiProcess, bool forceSelect,
+                         bool nonInteractive)
 {
   TimeThis tt("MOApplication setup()");
 
@@ -188,8 +190,11 @@ int MOApplication::setup(MOMultiProcess& multiProcess, bool forceSelect)
   MOBase::details::setPluginDataPath(OrganizerCore::pluginDataPath());
 
   // figuring out the current instance
-  m_instance = getCurrentInstance(forceSelect);
+  m_instance = getCurrentInstance(forceSelect, nonInteractive);
   if (!m_instance) {
+    if (nonInteractive) {
+      throw std::runtime_error("no usable portable Mod Organizer instance");
+    }
     return 1;
   }
 
@@ -199,6 +204,9 @@ int MOApplication::setup(MOMultiProcess& multiProcess, bool forceSelect)
   setProperty("dataPath", dataPath);
 
   if (!setLogDirectory(dataPath)) {
+    if (nonInteractive) {
+      throw std::runtime_error("failed to create the instance log directory");
+    }
     reportError(tr("Failed to create log folder."));
     InstanceManager::singleton().clearCurrentInstance();
     return 1;
@@ -263,6 +271,9 @@ int MOApplication::setup(MOMultiProcess& multiProcess, bool forceSelect)
 
   m_core.reset(new OrganizerCore(*m_settings));
   if (!m_core->bootstrap()) {
+    if (nonInteractive) {
+      throw std::runtime_error("failed to set up instance data paths");
+    }
     reportError(tr("Failed to set up data paths."));
     InstanceManager::singleton().clearCurrentInstance();
     return 1;
@@ -276,7 +287,7 @@ int MOApplication::setup(MOMultiProcess& multiProcess, bool forceSelect)
   m_plugins->loadPlugins();
 
   // instance
-  if (auto r = setupInstanceLoop(*m_instance, *m_plugins)) {
+  if (auto r = setupInstanceLoop(*m_instance, *m_plugins, nonInteractive)) {
     return *r;
   }
 
@@ -444,17 +455,24 @@ void MOApplication::externalMessage(const QString& message)
   }
 }
 
-std::shared_ptr<Instance> MOApplication::getCurrentInstance(bool forceSelect)
+std::shared_ptr<Instance> MOApplication::getCurrentInstance(bool forceSelect,
+                                                            bool nonInteractive)
 {
   auto& m              = InstanceManager::singleton();
   auto currentInstance = m.currentInstance();
 
   if (forceSelect || !currentInstance) {
+    if (nonInteractive) {
+      return {};
+    }
     // clear any overrides that might have been given on the command line
     m.clearOverrides();
     currentInstance = selectInstance();
   } else {
     if (!QDir(currentInstance->directory()).exists()) {
+      if (nonInteractive) {
+        return {};
+      }
       // the previously used instance doesn't exist anymore
 
       // clear any overrides that might have been given on the command line
@@ -477,8 +495,19 @@ std::shared_ptr<Instance> MOApplication::getCurrentInstance(bool forceSelect)
 }
 
 std::optional<int> MOApplication::setupInstanceLoop(Instance& currentInstance,
-                                                    PluginContainer& pc)
+                                                    PluginContainer& pc,
+                                                    bool nonInteractive)
 {
+  if (nonInteractive) {
+    const auto result = currentInstance.setup(pc);
+    if (result != Instance::SetupResults::Okay) {
+      throw std::runtime_error(QString("instance setup failed with result %1")
+                                   .arg(static_cast<int>(result))
+                                   .toStdString());
+    }
+    return {};
+  }
+
   for (;;) {
     const auto setupResult = setupInstance(currentInstance, pc);
 

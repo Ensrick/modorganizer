@@ -103,7 +103,7 @@ int run(int argc, char* argv[])
 
       // set up plugins, OrganizerCore, etc.
       {
-        const auto r = app.setup(multiProcess, pick);
+        const auto r = app.setup(multiProcess, pick, cl.nonInteractive());
         pick         = false;
 
         if (r == RestartExitCode || r == ReselectExitCode) {
