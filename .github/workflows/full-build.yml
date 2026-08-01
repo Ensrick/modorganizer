@@ -65,10 +65,21 @@ jobs:
       - name: Verify distribution
         shell: pwsh
         run: |
-          $exe = Get-Item "$env:GITHUB_WORKSPACE\full-build\install\bin\ModOrganizer.exe"
+          $bin = "$env:GITHUB_WORKSPACE\full-build\install\bin"
+          $exe = Get-Item "$bin\ModOrganizer.exe"
           Write-Output "ModOrganizer version: $($exe.VersionInfo.ProductVersion)"
-          if (!(Test-Path "$env:GITHUB_WORKSPACE\full-build\install\bin\plugins\game_skyrimse.dll")) {
+          if (!(Test-Path "$bin\plugins\game_skyrimse.dll")) {
             throw "Skyrim Special Edition game plugin is missing."
+          }
+          if (!(Test-Path "$bin\MO2Headless.exe")) {
+            throw "MO2Headless controller is missing."
+          }
+          if (!(Test-Path "$bin\Qt6Core.dll")) {
+            throw "Standalone Qt6Core runtime is missing."
+          }
+          & "$bin\MO2Headless.exe" --version
+          if ($LASTEXITCODE -ne 0) {
+            throw "MO2Headless failed its standalone startup probe."
           }
 
       - name: Package full distribution
