@@ -50,6 +50,7 @@ struct SpawnParameters
   QDir currentDirectory;
   QString steamAppID;
   bool hooked   = false;
+  bool noWindow = false;
   HANDLE stdOut = INVALID_HANDLE_VALUE;
   HANDLE stdErr = INVALID_HANDLE_VALUE;
 };

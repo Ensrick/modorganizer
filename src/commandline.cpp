@@ -874,6 +874,9 @@ std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
 
     runner.setWaitForCompletion(ProcessRunner::ForCommandLine |
                                 ProcessRunner::SilentWait);
+    runner.setNoWindow(true);
+    runner.setStandardHandles(GetStdHandle(STD_OUTPUT_HANDLE),
+                              GetStdHandle(STD_ERROR_HANDLE));
     const auto result = runner.run();
     if (result != ProcessRunner::Completed) {
       const QJsonObject output{{"ok", false},

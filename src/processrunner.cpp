@@ -512,6 +512,19 @@ ProcessRunner& ProcessRunner::setHooked(bool b)
   return *this;
 }
 
+ProcessRunner& ProcessRunner::setNoWindow(bool b)
+{
+  m_sp.noWindow = b;
+  return *this;
+}
+
+ProcessRunner& ProcessRunner::setStandardHandles(HANDLE stdOut, HANDLE stdErr)
+{
+  m_sp.stdOut = stdOut;
+  m_sp.stdErr = stdErr;
+  return *this;
+}
+
 ProcessRunner& ProcessRunner::setFromFile(QWidget* parent, const QFileInfo& targetInfo)
 {
   if (!parent && m_ui) {

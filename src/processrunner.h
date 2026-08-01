@@ -90,6 +90,8 @@ public:
   ProcessRunner& setWaitForCompletion(WaitFlags flags          = NoFlags,
                                       UILocker::Reasons reason = UILocker::LockUI);
   ProcessRunner& setHooked(bool b);
+  ProcessRunner& setNoWindow(bool b);
+  ProcessRunner& setStandardHandles(HANDLE stdOut, HANDLE stdErr);
 
   // - if the target is an executable file, runs it hooked
   // - if the target is a file:

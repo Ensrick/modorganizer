@@ -407,11 +407,12 @@ void logSpawning(const SpawnParameters& sp, const QString& realCmd)
              " . cwd: '{}'\n"
              " . steam id: '{}'\n"
              " . hooked: {}\n"
+             " . no window: {}\n"
              " . stdout: {}\n"
              " . stderr: {}\n"
              " . real cmd: '{}'",
              sp.binary.absoluteFilePath(), sp.arguments,
-             sp.currentDirectory.absolutePath(), sp.steamAppID, sp.hooked,
+             sp.currentDirectory.absolutePath(), sp.steamAppID, sp.hooked, sp.noWindow,
              (sp.stdOut == INVALID_HANDLE_VALUE ? "no" : "yes"),
              (sp.stdErr == INVALID_HANDLE_VALUE ? "no" : "yes"), realCmd);
 }
@@ -455,7 +456,7 @@ DWORD spawn(const SpawnParameters& sp, HANDLE& processHandle)
   const auto wcommandLine = commandLine.toStdWString();
   const auto wcwd         = cwd.toStdWString();
 
-  const DWORD flags = CREATE_BREAKAWAY_FROM_JOB;
+  const DWORD flags = CREATE_BREAKAWAY_FROM_JOB | (sp.noWindow ? CREATE_NO_WINDOW : 0);
 
   if (sp.hooked) {
     success = ::usvfsCreateProcessHooked(
