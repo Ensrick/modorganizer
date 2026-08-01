@@ -1551,13 +1551,21 @@ int main(int argc, char* argv[])
       requireSafeName(name, "plugin");
       const auto mods       = readModList(context.modListPath());
       const auto discovered = discoverPlugins(context, mods);
-      if (!discovered.contains(name.toLower())) {
+      auto entries          = readPluginList(context.pluginsPath());
+      int index             = findPluginEntry(entries, name);
+      if (command != "plugin-disable" && !discovered.contains(name.toLower())) {
         throw Failure(
             ExNoInput,
             QString("plugin is not present in the effective data tree: %1").arg(name));
       }
-      auto entries = readPluginList(context.pluginsPath());
-      int index    = findPluginEntry(entries, name);
+      if (command == "plugin-disable" && index < 0) {
+        emitJson({{"ok", true},
+                  {"operation", command},
+                  {"plugin", name},
+                  {"changed", false},
+                  {"dryRun", dryRun}});
+        return 0;
+      }
       if (index < 0) {
         entries.push_back({name, false});
         index = entries.size() - 1;
@@ -1585,6 +1593,7 @@ int main(int argc, char* argv[])
       emitJson({{"ok", true},
                 {"operation", command},
                 {"plugin", name},
+                {"changed", true},
                 {"transaction", tx.id()},
                 {"dryRun", dryRun}});
       return 0;
