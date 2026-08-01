@@ -872,7 +872,8 @@ std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
           QString::fromStdString(vm()["overwrite"].as<std::string>()));
     }
 
-    runner.setWaitForCompletion(ProcessRunner::ForCommandLine, UILocker::PreventExit);
+    runner.setWaitForCompletion(ProcessRunner::ForCommandLine |
+                                ProcessRunner::SilentWait);
     const auto result = runner.run();
     if (result != ProcessRunner::Completed) {
       const QJsonObject output{{"ok", false},

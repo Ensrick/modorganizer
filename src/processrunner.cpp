@@ -884,7 +884,9 @@ ProcessRunner::Results ProcessRunner::postRun()
 
   auto r = Error;
 
-  if (mustWait && m_lockReason == UILocker::PreventExit && !lockEnabled) {
+  if (m_waitFlags.testFlag(SilentWait)) {
+    r = waitForProcess(m_handle.get(), &m_exitCode, nullptr);
+  } else if (mustWait && m_lockReason == UILocker::PreventExit && !lockEnabled) {
     // this happens when running shortcuts and locking is disabled
     //
     // MO must stay alive until all processes are dead or child processes

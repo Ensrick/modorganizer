@@ -62,7 +62,11 @@ public:
     //
     //  3) ForceWait: MO must wait for the program to finish even if locking the
     //     ui is disabled
-    ForCommandLine = TriggerRefresh | WaitForRefresh | ForceWait
+    ForCommandLine = TriggerRefresh | WaitForRefresh | ForceWait,
+
+    // wait without constructing the UI lock overlay or dialog; callers must
+    // provide their own cancellation and timeout handling
+    SilentWait = 0x08
   };
 
   using WaitFlags       = QFlags<WaitFlag>;
