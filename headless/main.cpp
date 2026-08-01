@@ -347,6 +347,35 @@ QByteArray serializeModList(const QList<ModEntry>& entries)
   return bytes;
 }
 
+QList<ModEntry> managedModEntries(const QList<ModEntry>& entries)
+{
+  QList<ModEntry> result;
+  for (const auto& entry : entries) {
+    if (entry.marker != '*') {
+      result.push_back(entry);
+    }
+  }
+  return result;
+}
+
+QList<ModEntry> foreignModEntries(const QList<ModEntry>& entries)
+{
+  QList<ModEntry> result;
+  for (const auto& entry : entries) {
+    if (entry.marker == '*') {
+      result.push_back(entry);
+    }
+  }
+  return result;
+}
+
+QList<ModEntry> appendForeignMods(QList<ModEntry> managed,
+                                  const QList<ModEntry>& original)
+{
+  managed.append(foreignModEntries(original));
+  return managed;
+}
+
 struct PluginEntry
 {
   QString name;
@@ -895,10 +924,15 @@ int findPluginEntry(const QList<PluginEntry>& entries, const QString& name)
 QJsonArray modEntriesJson(const QList<ModEntry>& entries)
 {
   QJsonArray array;
+  const int managedCount = managedModEntries(entries).size();
+  int managedIndex       = 0;
   for (int i = 0; i < entries.size(); ++i) {
+    const bool managed = entries[i].marker != '*';
     array.push_back(QJsonObject{{"name", entries[i].name},
                                 {"enabled", entries[i].enabled},
-                                {"priority", entries.size() - i - 1}});
+                                {"managed", managed},
+                                {"priority",
+                                 managed ? managedCount - managedIndex++ - 1 : -1}});
   }
   return array;
 }
@@ -1203,8 +1237,9 @@ int main(int argc, char* argv[])
       if (findModDirectory(context, name).isEmpty()) {
         throw Failure(ExNoInput, QString("mod directory does not exist: %1").arg(name));
       }
-      auto entries = readModList(context.modListPath());
-      int index    = findModEntry(entries, name);
+      const auto original = readModList(context.modListPath());
+      auto entries        = managedModEntries(original);
+      int index           = findModEntry(entries, name);
       if (index < 0) {
         entries.prepend({name, false, '-'});
         index = 0;
@@ -1224,7 +1259,8 @@ int main(int argc, char* argv[])
         entries[index].marker  = entries[index].enabled ? '+' : '-';
       }
       Mutation tx(context, command, dryRun);
-      tx.write(context.modListPath(), serializeModList(entries));
+      tx.write(context.modListPath(),
+               serializeModList(appendForeignMods(entries, original)));
       tx.commit();
       emitJson({{"ok", true},
                 {"operation", command},
@@ -1307,8 +1343,9 @@ int main(int argc, char* argv[])
         meta.sync();
       }
 
-      auto entries = readModList(context.modListPath());
-      int index    = findModEntry(entries, name);
+      const auto original = readModList(context.modListPath());
+      auto entries        = managedModEntries(original);
+      int index           = findModEntry(entries, name);
       if (index >= 0) {
         entries.removeAt(index);
       }
@@ -1323,7 +1360,8 @@ int main(int argc, char* argv[])
         priority = std::min(priority, static_cast<int>(entries.size()));
       }
       entries.insert(entries.size() - priority, entry);
-      tx.write(context.modListPath(), serializeModList(entries));
+      tx.write(context.modListPath(),
+               serializeModList(appendForeignMods(entries, original)));
       tx.commit();
       emitJson({{"ok", true},
                 {"operation", command},
@@ -1386,7 +1424,7 @@ int main(int argc, char* argv[])
     }
 
     if (command == "snapshot") {
-      const auto mods    = readModList(context.modListPath());
+      const auto mods = managedModEntries(readModList(context.modListPath()));
       const auto plugins = readPluginList(context.pluginsPath());
       emitJson({{"ok", true},
                 {"operation", command},
@@ -1448,6 +1486,7 @@ int main(int argc, char* argv[])
         previousPriority = priority;
         modEntries.push_back(entry);
       }
+      modEntries = appendForeignMods(modEntries, readModList(context.modListPath()));
 
       QList<QPair<int, PluginEntry>> plannedPlugins;
       QSet<QString> pluginNames;
@@ -1557,6 +1596,9 @@ int main(int argc, char* argv[])
       const auto mods = readModList(context.modListPath());
       QSet<QString> listedMods;
       for (const auto& mod : mods) {
+        if (mod.marker == '*') {
+          continue;
+        }
         listedMods.insert(mod.name.toLower());
         if (findModDirectory(context, mod.name).isEmpty()) {
           errors.push_back("modlist references missing directory: " + mod.name);

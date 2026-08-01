@@ -19,6 +19,8 @@ stable non-zero exit codes.
 - Links in source or extracted trees are rejected.
 - FOMOD archives require a deterministic `--install-plan`; installing all
   conditional branches is never used as a fallback.
+- MO2's `*`-marked unmanaged DLC and Creation Club rows are preserved, excluded
+  from managed-mod priorities, and not treated as missing mod directories.
 
 The GUI and headless controller must not mutate the same instance concurrently.
 The controller lock protects autonomous processes; MO2 itself does not yet
