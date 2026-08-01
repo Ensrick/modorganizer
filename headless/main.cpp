@@ -1023,8 +1023,8 @@ int main(int argc, char* argv[])
   QCommandLineParser parser;
   parser.setApplicationDescription(
       "Transactional, GUI-free Mod Organizer 2 instance controller");
-  parser.addHelpOption();
-  parser.addVersionOption();
+  parser.addOption({{"h", "help"}, "Show this help text."});
+  parser.addOption({{"v", "version"}, "Show the application version."});
   parser.addOptions({
       {{"r", "root"},
        "Portable instance root (defaults to executable directory).",
@@ -1052,11 +1052,33 @@ int main(int argc, char* argv[])
   parser.addPositionalArgument("command", "Operation to perform.");
   parser.addPositionalArgument("operands", "Operation-specific operands.",
                                "[operands...]");
-  parser.process(app);
+  if (!parser.parse(app.arguments())) {
+    emitJson({{"ok", false},
+              {"operation", "parse"},
+              {"error", parser.errorText()},
+              {"exitCode", ExUsage}},
+             true);
+    return ExUsage;
+  }
+  if (parser.isSet("help")) {
+    const QByteArray help = parser.helpText().toUtf8();
+    std::cout.write(help.constData(), help.size());
+    return 0;
+  }
+  if (parser.isSet("version")) {
+    std::cout << QCoreApplication::applicationName().toStdString() << ' '
+              << QCoreApplication::applicationVersion().toStdString() << '\n';
+    return 0;
+  }
 
   const QStringList positional = parser.positionalArguments();
   if (positional.isEmpty()) {
-    parser.showHelp(ExUsage);
+    emitJson({{"ok", false},
+              {"operation", "parse"},
+              {"error", "missing command"},
+              {"exitCode", ExUsage}},
+             true);
+    return ExUsage;
   }
 
   const QString command      = positional[0].toLower();
