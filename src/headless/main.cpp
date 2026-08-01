@@ -129,6 +129,9 @@ bool copyTree(const QString& source, const QString& target)
   if (!sourceInfo.exists() || !sourceInfo.isDir() || sourceInfo.isSymLink()) {
     return false;
   }
+  if (isWithin(target, source)) {
+    return false;
+  }
   if (!QDir().mkpath(target)) {
     return false;
   }
