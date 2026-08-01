@@ -57,6 +57,12 @@ if (-not $SkipVfs) {
     if ($LASTEXITCODE -ne 7 -or $result.exitCode -ne 7) {
         throw "VFS exit propagation failed: $text"
     }
+
+    # MO2 adds `*`-marked unmanaged DLC/Creation Club rows during setup. Also
+    # prove that a plugin can be disabled after its supplying mod is disabled.
+    Invoke-Headless '-p' Automation mod-disable 'Basic Fixture' | Out-Null
+    Invoke-Headless '-p' Automation plugin-disable HeadlessSmoke.esp | Out-Null
+    Invoke-Headless '-p' Automation audit | Out-Null
 }
 
 Write-Host "PASS MO2Headless smoke test (transaction $($stage.transaction))"

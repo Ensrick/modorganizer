@@ -1622,7 +1622,7 @@ int main(int argc, char* argv[])
       const auto discovered = discoverPlugins(context, mods);
       const auto plugins    = readPluginList(context.pluginsPath());
       for (const auto& plugin : plugins) {
-        if (!discovered.contains(plugin.name.toLower())) {
+        if (plugin.enabled && !discovered.contains(plugin.name.toLower())) {
           errors.push_back("plugins.txt references missing plugin: " + plugin.name);
         }
       }
