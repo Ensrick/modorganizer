@@ -1577,7 +1577,7 @@ int main(int argc, char* argv[])
         throw Failure(ExNoInput,
                       QString("ModOrganizer.exe not found in %1").arg(context.root));
       }
-      QStringList arguments{"--logs", "-p", context.profile, "headless-run"};
+      QStringList arguments{"-p", context.profile, "headless-run"};
       if (parser.isSet("arguments")) {
         arguments << "--arguments" << parser.value("arguments");
       }

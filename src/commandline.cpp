@@ -875,7 +875,6 @@ std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
     runner.setWaitForCompletion(ProcessRunner::ForCommandLine, UILocker::PreventExit);
     const auto result = runner.run();
     if (result != ProcessRunner::Completed) {
-      env::Console console;
       const QJsonObject output{{"ok", false},
                                {"operation", "headless-run"},
                                {"error", "process did not complete"}};
@@ -885,7 +884,6 @@ std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
     }
 
     const DWORD childExit = runner.exitCode();
-    env::Console console;
     const QJsonObject output{{"ok", true},
                              {"operation", "headless-run"},
                              {"program", program},
@@ -894,7 +892,6 @@ std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
               << "\n";
     return static_cast<int>(childExit & 0x7fffffff);
   } catch (const std::exception& e) {
-    env::Console console;
     const QJsonObject output{{"ok", false},
                              {"operation", "headless-run"},
                              {"error", QString::fromUtf8(e.what())}};

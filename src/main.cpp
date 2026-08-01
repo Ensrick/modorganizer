@@ -59,7 +59,6 @@ int run(int argc, char* argv[])
     }
 
     if (cl.nonInteractive()) {
-      env::Console console;
       std::cerr << "{\"ok\":false,\"operation\":\"headless-run\","
                    "\"error\":\"another Mod Organizer process is running\","
                    "\"exitCode\":75}\n";
@@ -145,7 +144,6 @@ int run(int argc, char* argv[])
       return r;
     } catch (const std::exception& e) {
       if (cl.nonInteractive()) {
-        env::Console console;
         const QString escaped = QString::fromUtf8(e.what())
                                     .replace('\\', "\\\\")
                                     .replace('"', "\\\"")
