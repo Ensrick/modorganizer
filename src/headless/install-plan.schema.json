@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MO2Headless deterministic archive install plan",
+  "type": "object",
+  "required": ["schemaVersion", "mappings"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["source"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "destination": { "type": "string", "default": "." }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

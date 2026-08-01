@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 
@@ -83,6 +84,9 @@ bool isWithin(const QString& path, const QString& root)
   const QString parent    = canonicalForCompare(root);
   return candidate == parent.chopped(1) || candidate.startsWith(parent);
 }
+
+class InstanceContext;
+bool isManagedTransactionPath(const QString& path, const InstanceContext& context);
 
 void requireSafeName(const QString& name, const QString& kind)
 {
@@ -153,6 +157,122 @@ bool copyTree(const QString& source, const QString& target)
     }
   }
   return true;
+}
+
+bool copyTreeOverlay(const QString& source, const QString& target)
+{
+  const QFileInfo sourceInfo(source);
+  if (!sourceInfo.exists() || !sourceInfo.isDir() || sourceInfo.isSymLink() ||
+      !QDir().mkpath(target)) {
+    return false;
+  }
+  QDirIterator it(source, QDir::AllEntries | QDir::NoDotAndDotDot,
+                  QDirIterator::Subdirectories);
+  while (it.hasNext()) {
+    const QString item = it.next();
+    const QFileInfo info = it.fileInfo();
+    if (info.isSymLink()) {
+      return false;
+    }
+    const QString destination =
+        QDir(target).filePath(QDir(source).relativeFilePath(item));
+    if (info.isDir()) {
+      if (!QDir().mkpath(destination)) {
+        return false;
+      }
+    } else if (info.isFile()) {
+      if (!QDir().mkpath(QFileInfo(destination).absolutePath())) {
+        return false;
+      }
+      if (QFileInfo::exists(destination) && !QFile::remove(destination)) {
+        return false;
+      }
+      if (!QFile::copy(item, destination)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isSafeRelative(QString path)
+{
+  path = QDir::fromNativeSeparators(path.trimmed());
+  if (path.isEmpty() || path.startsWith('/') ||
+      (path.size() > 1 && path.at(1) == ':')) {
+    return false;
+  }
+  const auto components = path.split('/', Qt::SkipEmptyParts);
+  return std::none_of(components.cbegin(), components.cend(),
+                      [](const QString& component) { return component == ".."; });
+}
+
+void validateExtractedTree(const QString& root);
+
+void applyInstallPlan(const QString& extractedRoot, const QString& planPath,
+                      const QString& resolvedRoot)
+{
+  const auto document = QJsonDocument::fromJson(readFile(planPath));
+  if (!document.isObject()) {
+    throw Failure(ExDataErr, "install plan must be a JSON object");
+  }
+  const auto object = document.object();
+  if (object["schemaVersion"].toInt() != 1) {
+    throw Failure(ExDataErr, "unsupported install plan schemaVersion");
+  }
+  const auto mappings = object["mappings"].toArray();
+  if (mappings.isEmpty()) {
+    throw Failure(ExDataErr, "install plan contains no mappings");
+  }
+  if (!QDir().mkpath(resolvedRoot)) {
+    throw Failure(ExCantCreat, "cannot create resolved install stage");
+  }
+
+  for (const auto& value : mappings) {
+    const auto mapping = value.toObject();
+    const QString sourceRelative = mapping["source"].toString();
+    QString destinationRelative = mapping["destination"].toString(".");
+    if (!isSafeRelative(sourceRelative) || !isSafeRelative(destinationRelative)) {
+      throw Failure(ExDataErr, "install plan contains an unsafe relative path");
+    }
+    const QString source = absoluteClean(QDir(extractedRoot).filePath(sourceRelative));
+    const QString destination =
+        absoluteClean(QDir(resolvedRoot).filePath(destinationRelative));
+    if (!isWithin(source, extractedRoot) || !isWithin(destination, resolvedRoot) ||
+        !QFileInfo::exists(source)) {
+      throw Failure(ExDataErr,
+                    QString("invalid install mapping source: %1").arg(sourceRelative));
+    }
+    const QFileInfo sourceInfo(source);
+    if (sourceInfo.isSymLink()) {
+      throw Failure(ExDataErr, "install plan source is a link");
+    }
+    if (sourceInfo.isDir()) {
+      if (!copyTreeOverlay(source, destination)) {
+        throw Failure(ExIoErr,
+                      QString("cannot apply install mapping: %1").arg(sourceRelative));
+      }
+    } else if (sourceInfo.isFile()) {
+      QString output = destination;
+      if (destinationRelative.endsWith('/') || QFileInfo(destination).isDir()) {
+        output = QDir(destination).filePath(sourceInfo.fileName());
+      }
+      if (!QDir().mkpath(QFileInfo(output).absolutePath())) {
+        throw Failure(ExCantCreat, QString("cannot create %1").arg(output));
+      }
+      if (QFileInfo::exists(output) && !QFile::remove(output)) {
+        throw Failure(ExIoErr, QString("cannot replace %1").arg(output));
+      }
+      if (!QFile::copy(source, output)) {
+        throw Failure(ExIoErr, QString("cannot copy %1").arg(sourceRelative));
+      }
+    } else {
+      throw Failure(ExDataErr, "install mapping source is not a file or directory");
+    }
+  }
+  validateExtractedTree(resolvedRoot);
 }
 
 struct ModEntry
@@ -335,6 +455,25 @@ public:
   QString gamePath;
   QString profile;
 };
+
+bool isManagedTransactionPath(const QString& path, const InstanceContext& context)
+{
+  if (isWithin(path, context.root) || isWithin(path, context.base) ||
+      isWithin(path, context.mods) || isWithin(path, context.profiles) ||
+      isWithin(path, context.downloads) || isWithin(path, context.overwrite)) {
+    return true;
+  }
+
+  const auto isManagedSibling = [&path](const QString& managedDirectory) {
+    const QString parent = QFileInfo(managedDirectory).absolutePath();
+    const QString relative = QDir::fromNativeSeparators(
+        QDir(parent).relativeFilePath(absoluteClean(path)));
+    return relative != ".." && !relative.startsWith("../") &&
+           (relative.startsWith(".mo2-headless-stage-") ||
+            relative.startsWith(".mo2-headless-trash/"));
+  };
+  return isManagedSibling(context.mods) || isManagedSibling(context.profiles);
+}
 
 class Mutation
 {
@@ -770,7 +909,8 @@ void restoreTransaction(const InstanceContext& context, const QString& id,
     const auto move = it->toObject();
     const QString from = absoluteClean(move["from"].toString());
     const QString to   = absoluteClean(move["to"].toString());
-    if (!isWithin(from, context.base) || !isWithin(to, context.base)) {
+    if (!isManagedTransactionPath(from, context) ||
+        !isManagedTransactionPath(to, context)) {
       throw Failure(ExDataErr, "transaction move escapes the instance base");
     }
     if (!dryRun && QFileInfo::exists(to) && !QFileInfo::exists(from)) {
@@ -784,7 +924,7 @@ void restoreTransaction(const InstanceContext& context, const QString& id,
   for (const auto& value : manifest["files"].toArray()) {
     const auto file = value.toObject();
     const QString path = absoluteClean(file["path"].toString());
-    if (!isWithin(path, context.base) &&
+    if (!isManagedTransactionPath(path, context) &&
         path.compare(context.iniPath, Qt::CaseInsensitive) != 0) {
       throw Failure(ExDataErr, "transaction file escapes the instance base");
     }
@@ -838,6 +978,8 @@ int main(int argc, char* argv[])
       {"arguments", "Arguments for run, passed as one command-line string.", "text"},
       {"cwd", "Working directory for run.", "path"},
       {"overwrite", "Named output mod for a VFS run.", "mod"},
+      {"install-plan", "Deterministic JSON file mappings for a FOMOD archive.",
+       "path"},
       {"timeout", "Timeout in seconds for archive extraction or VFS run (0=none).",
        "seconds", "300"},
   });
@@ -867,8 +1009,8 @@ int main(int argc, char* argv[])
     }
 
     const bool mutating = command != "profile-list" && command != "mod-list" &&
-                          command != "plugin-list" && command != "audit" &&
-                          command != "run";
+                          command != "plugin-list" && command != "snapshot" &&
+                          command != "audit" && command != "status";
     QLockFile lock(QDir(context.root).filePath(".mo2-headless.lock"));
     if (mutating) {
       acquireLock(lock, parser.value("lock-timeout").toInt());
@@ -899,6 +1041,31 @@ int main(int argc, char* argv[])
       return 0;
     }
 
+    if (command == "profile-select") {
+      if (operands.size() != 1) {
+        throw Failure(ExUsage, "profile-select requires NAME");
+      }
+      const QString name = operands[0];
+      requireSafeName(name, "profile");
+      if (!QFileInfo(QDir(context.profiles).filePath(name)).isDir()) {
+        throw Failure(ExNoInput, QString("profile does not exist: %1").arg(name));
+      }
+      Mutation tx(context, command, dryRun);
+      tx.write(context.iniPath, readFile(context.iniPath));
+      if (!dryRun) {
+        QSettings settings(context.iniPath, QSettings::IniFormat);
+        settings.setValue("General/selected_profile", name.toUtf8());
+        settings.sync();
+        if (settings.status() != QSettings::NoError) {
+          throw Failure(ExIoErr, "cannot update selected profile");
+        }
+      }
+      tx.commit();
+      emitJson({{"ok", true}, {"operation", command}, {"profile", name},
+                {"transaction", tx.id()}, {"dryRun", dryRun}});
+      return 0;
+    }
+
     if (command == "profile-create") {
       if (operands.size() != 1) {
         throw Failure(ExUsage, "profile-create requires NAME");
@@ -910,18 +1077,22 @@ int main(int argc, char* argv[])
         throw Failure(ExCantCreat, QString("profile already exists: %1").arg(name));
       }
       Mutation tx(context, command, dryRun);
+      const QString stage =
+          QDir(QFileInfo(context.profiles).absolutePath())
+              .filePath(".mo2-headless-stage-" + tx.id() + "-profile");
       if (!dryRun) {
         const QString clone = parser.value("clone");
         if (!clone.isEmpty()) {
           requireSafeName(clone, "profile");
           const QString source = QDir(context.profiles).filePath(clone);
-          if (!copyTree(source, target)) {
+          if (!copyTree(source, stage)) {
             throw Failure(ExIoErr, QString("cannot clone profile %1").arg(clone));
           }
         } else {
-          ensureProfileFiles(target);
+          ensureProfileFiles(stage);
         }
       }
+      tx.move(stage, target);
       if (parser.isSet("select")) {
         tx.write(context.iniPath, readFile(context.iniPath));
         if (!dryRun) {
@@ -933,6 +1104,30 @@ int main(int argc, char* argv[])
       tx.commit();
       emitJson({{"ok", true}, {"operation", command}, {"profile", name},
                 {"transaction", tx.id()}, {"dryRun", dryRun}});
+      return 0;
+    }
+
+    if (command == "profile-trash") {
+      if (operands.size() != 1 || !parser.isSet("yes")) {
+        throw Failure(ExUsage, "profile-trash requires NAME and --yes");
+      }
+      const QString name = operands[0];
+      requireSafeName(name, "profile");
+      if (name.compare(context.profile, Qt::CaseInsensitive) == 0) {
+        throw Failure(ExDataErr, "cannot trash the selected profile");
+      }
+      const QString existing = QDir(context.profiles).filePath(name);
+      if (!QFileInfo(existing).isDir()) {
+        throw Failure(ExNoInput, QString("profile does not exist: %1").arg(name));
+      }
+      Mutation tx(context, command, dryRun);
+      const QString trash =
+          QDir(QFileInfo(context.profiles).absolutePath())
+              .filePath(".mo2-headless-trash/" + tx.id() + "-profile-" + name);
+      tx.move(existing, trash);
+      tx.commit();
+      emitJson({{"ok", true}, {"operation", command}, {"profile", name},
+                {"trash", trash}, {"transaction", tx.id()}, {"dryRun", dryRun}});
       return 0;
     }
 
@@ -1020,14 +1215,25 @@ int main(int argc, char* argv[])
           runProcess("tar.exe", {"-xf", source, "-C", stage}, timeout);
         }
         validateExtractedTree(stage);
-        if (containsFomod(stage)) {
+        const bool fomod = containsFomod(stage);
+        if (fomod && !parser.isSet("install-plan")) {
           throw Failure(ExDataErr,
-                        "archive contains a FOMOD; supply a deterministic resolved "
-                        "archive instead of installing every conditional file");
+                        "archive contains a FOMOD; --install-plan is required");
         }
       }
 
-      QString contentRoot = dryRun ? stage : normalizedContentRoot(stage);
+      QString installRoot = stage;
+      if (parser.isSet("install-plan")) {
+        const QString plan = absoluteClean(parser.value("install-plan"));
+        if (!QFileInfo::exists(plan)) {
+          throw Failure(ExNoInput, QString("install plan does not exist: %1").arg(plan));
+        }
+        installRoot = QDir(stageParent).filePath("resolved");
+        if (!dryRun) {
+          applyInstallPlan(stage, plan, installRoot);
+        }
+      }
+      QString contentRoot = dryRun ? installRoot : normalizedContentRoot(installRoot);
       if (!existing.isEmpty()) {
         const QString trash =
             QDir(QFileInfo(context.mods).absolutePath())
@@ -1112,6 +1318,120 @@ int main(int argc, char* argv[])
       return 0;
     }
 
+    if (command == "snapshot") {
+      const auto mods = readModList(context.modListPath());
+      const auto plugins = readPluginList(context.pluginsPath());
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"schemaVersion", 1},
+                {"instanceRoot", context.root},
+                {"profile", context.profile},
+                {"mods", modEntriesJson(mods)},
+                {"plugins", pluginEntriesJson(plugins)}});
+      return 0;
+    }
+
+    if (command == "apply") {
+      if (operands.size() != 1) {
+        throw Failure(ExUsage, "apply requires MANIFEST_JSON");
+      }
+      const QString manifestPath = absoluteClean(operands[0]);
+      const auto document = QJsonDocument::fromJson(readFile(manifestPath));
+      if (!document.isObject()) {
+        throw Failure(ExDataErr, "state manifest must be a JSON object");
+      }
+      const auto object = document.object();
+      if (object["schemaVersion"].toInt() != 1) {
+        throw Failure(ExDataErr, "unsupported state manifest schemaVersion");
+      }
+      if (object.contains("profile") &&
+          object["profile"].toString().compare(context.profile,
+                                                Qt::CaseInsensitive) != 0) {
+        throw Failure(ExDataErr, "manifest profile does not match selected profile");
+      }
+
+      QList<QPair<int, ModEntry>> plannedMods;
+      QSet<QString> modNames;
+      for (const auto& value : object["mods"].toArray()) {
+        const auto mod = value.toObject();
+        const QString name = mod["name"].toString();
+        requireSafeName(name, "mod");
+        if (modNames.contains(name.toLower())) {
+          throw Failure(ExDataErr, QString("duplicate mod in manifest: %1").arg(name));
+        }
+        if (findModDirectory(context, name).isEmpty()) {
+          throw Failure(ExNoInput, QString("manifest mod is not installed: %1").arg(name));
+        }
+        modNames.insert(name.toLower());
+        plannedMods.push_back(
+            {mod["priority"].toInt(-1),
+             ModEntry{name, mod["enabled"].toBool(),
+                      mod["enabled"].toBool() ? '+' : '-'}});
+      }
+      std::sort(plannedMods.begin(), plannedMods.end(), [](const auto& a, const auto& b) {
+        return a.first > b.first;
+      });
+      QList<ModEntry> modEntries;
+      int previousPriority = std::numeric_limits<int>::max();
+      for (const auto& [priority, entry] : plannedMods) {
+        if (priority < 0 || priority >= previousPriority) {
+          throw Failure(ExDataErr,
+                        "mod priorities must be unique non-negative values");
+        }
+        previousPriority = priority;
+        modEntries.push_back(entry);
+      }
+
+      QList<QPair<int, PluginEntry>> plannedPlugins;
+      QSet<QString> pluginNames;
+      const auto discovered = discoverPlugins(context, modEntries);
+      for (const auto& value : object["plugins"].toArray()) {
+        const auto plugin = value.toObject();
+        const QString name = plugin["name"].toString();
+        requireSafeName(name, "plugin");
+        if (pluginNames.contains(name.toLower())) {
+          throw Failure(ExDataErr,
+                        QString("duplicate plugin in manifest: %1").arg(name));
+        }
+        if (!discovered.contains(name.toLower())) {
+          throw Failure(ExNoInput,
+                        QString("manifest plugin is not in the effective tree: %1")
+                            .arg(name));
+        }
+        pluginNames.insert(name.toLower());
+        plannedPlugins.push_back(
+            {plugin["priority"].toInt(-1),
+             PluginEntry{name, plugin["enabled"].toBool()}});
+      }
+      std::sort(plannedPlugins.begin(), plannedPlugins.end(),
+                [](const auto& a, const auto& b) { return a.first < b.first; });
+      QList<PluginEntry> pluginEntries;
+      previousPriority = -1;
+      for (const auto& [priority, entry] : plannedPlugins) {
+        if (priority < 0 || priority <= previousPriority) {
+          throw Failure(ExDataErr,
+                        "plugin priorities must be unique non-negative values");
+        }
+        previousPriority = priority;
+        pluginEntries.push_back(entry);
+      }
+
+      Mutation tx(context, command, dryRun);
+      tx.write(context.modListPath(), serializeModList(modEntries));
+      tx.write(context.pluginsPath(), serializePluginList(pluginEntries));
+      QByteArray loadOrder;
+      for (const auto& entry : pluginEntries) {
+        loadOrder += entry.name.toUtf8() + "\r\n";
+      }
+      tx.write(context.loadOrderPath(), loadOrder);
+      tx.commit();
+      emitJson({{"ok", true}, {"operation", command},
+                {"profile", context.profile}, {"modCount", modEntries.size()},
+                {"pluginCount", pluginEntries.size()}, {"transaction", tx.id()},
+                {"dryRun", dryRun}});
+      return 0;
+    }
+
     if (command == "plugin-enable" || command == "plugin-disable" ||
         command == "plugin-priority") {
       const int expected = command == "plugin-priority" ? 2 : 1;
@@ -1161,9 +1481,18 @@ int main(int argc, char* argv[])
     if (command == "audit") {
       QStringList errors;
       const auto mods = readModList(context.modListPath());
+      QSet<QString> listedMods;
       for (const auto& mod : mods) {
+        listedMods.insert(mod.name.toLower());
         if (findModDirectory(context, mod.name).isEmpty()) {
           errors.push_back("modlist references missing directory: " + mod.name);
+        }
+      }
+      const QDir modsDirectory(context.mods);
+      for (const auto& info : modsDirectory.entryInfoList(
+               QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::IgnoreCase)) {
+        if (!listedMods.contains(info.fileName().toLower())) {
+          errors.push_back("installed mod is absent from modlist: " + info.fileName());
         }
       }
       const auto discovered = discoverPlugins(context, mods);

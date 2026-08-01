@@ -75,6 +75,12 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/markdown.html"
 # install ModOrganizer.exe itself
 install(FILES $<TARGET_FILE:organizer> DESTINATION ${_bin})
 install(FILES $<TARGET_FILE:mo2-headless> DESTINATION ${_bin})
+install(FILES
+	${CMAKE_CURRENT_SOURCE_DIR}/headless/README.md
+	${CMAKE_CURRENT_SOURCE_DIR}/headless/state.schema.json
+	${CMAKE_CURRENT_SOURCE_DIR}/headless/install-plan.schema.json
+	${CMAKE_CURRENT_SOURCE_DIR}/headless/smoke.ps1
+	DESTINATION ${_bin}/headless)
 
 # install dependencies DLLs
 install(FILES $<TARGET_FILE:mo2::libbsarch> DESTINATION ${_bin}/dlls)
