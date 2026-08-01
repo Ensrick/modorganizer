@@ -23,9 +23,10 @@ set_target_properties(organizer PROPERTIES
 	OUTPUT_NAME "ModOrganizer"
 	WIN32_EXECUTABLE TRUE)
 
-add_executable(mo2-headless headless/main.cpp)
+add_executable(mo2-headless ${CMAKE_CURRENT_SOURCE_DIR}/../headless/main.cpp)
 set_target_properties(mo2-headless PROPERTIES OUTPUT_NAME "MO2Headless")
-mo2_configure_target(mo2-headless WARNINGS 4 TRANSLATIONS OFF)
+mo2_configure_target(mo2-headless NO_SOURCES WARNINGS 4 TRANSLATIONS OFF
+	AUTOMOC OFF)
 target_link_libraries(mo2-headless PRIVATE Qt6::Core)
 
 # disable translations because we want to be able to install somewhere else if
