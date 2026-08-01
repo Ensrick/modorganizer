@@ -52,9 +52,11 @@ Invoke-Headless '-p' Automation mod-install $archive 'Planned Fixture' '--instal
 Invoke-Headless '-p' Automation audit | Out-Null
 
 if (-not $SkipVfs) {
-    $text = & $controller -p Automation --timeout 30 run "$env:SystemRoot\System32\cmd.exe" --arguments '/d /c exit 7'
+    $output = & $controller -p Automation --timeout 30 run "$env:SystemRoot\System32\cmd.exe" --arguments '/d /c exit 7' 2>&1
+    $exitCode = $LASTEXITCODE
+    $text = ($output | ForEach-Object { $_.ToString() }) -join "`n"
     $result = $text | ConvertFrom-Json
-    if ($LASTEXITCODE -ne 7 -or $result.exitCode -ne 7) {
+    if ($exitCode -ne 7 -or $result.exitCode -ne 7) {
         throw "VFS exit propagation failed: $text"
     }
 
