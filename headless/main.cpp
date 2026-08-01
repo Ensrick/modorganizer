@@ -1520,7 +1520,7 @@ int main(int argc, char* argv[])
           throw Failure(ExDataErr,
                         QString("duplicate plugin in manifest: %1").arg(name));
         }
-        if (!discovered.contains(name.toLower())) {
+        if (plugin["enabled"].toBool() && !discovered.contains(name.toLower())) {
           throw Failure(
               ExNoInput,
               QString("manifest plugin is not in the effective tree: %1").arg(name));

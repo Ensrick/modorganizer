@@ -65,6 +65,11 @@ if (-not $SkipVfs) {
     Invoke-Headless '-p' Automation mod-disable 'Basic Fixture' | Out-Null
     Invoke-Headless '-p' Automation plugin-disable HeadlessSmoke.esp | Out-Null
     Invoke-Headless '-p' Automation audit | Out-Null
+    $state = Invoke-Headless '-p' Automation snapshot
+    $statePath = Join-Path $fixtureRoot 'state.json'
+    $state | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $statePath
+    Invoke-Headless '-p' Automation apply $statePath | Out-Null
+    Invoke-Headless '-p' Automation audit | Out-Null
 }
 
 Write-Host "PASS MO2Headless smoke test (transaction $($stage.transaction))"
