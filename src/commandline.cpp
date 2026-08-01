@@ -10,9 +10,9 @@
 #include <log.h>
 #include <report.h>
 
-#include <boost/optional/optional_io.hpp>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <boost/optional/optional_io.hpp>
 
 namespace cl
 {
@@ -867,8 +867,7 @@ std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
           QString::fromStdString(vm()["overwrite"].as<std::string>()));
     }
 
-    runner.setWaitForCompletion(ProcessRunner::ForCommandLine,
-                                UILocker::PreventExit);
+    runner.setWaitForCompletion(ProcessRunner::ForCommandLine, UILocker::PreventExit);
     const auto result = runner.run();
     if (result != ProcessRunner::Completed) {
       env::Console console;

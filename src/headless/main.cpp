@@ -13,8 +13,8 @@
 #include <QLockFile>
 #include <QProcess>
 #include <QSaveFile>
-#include <QSettings>
 #include <QSet>
+#include <QSettings>
 #include <QTemporaryDir>
 #include <QUuid>
 
@@ -90,9 +90,8 @@ bool isManagedTransactionPath(const QString& path, const InstanceContext& contex
 
 void requireSafeName(const QString& name, const QString& kind)
 {
-  if (name.trimmed().isEmpty() || name == "." || name == ".." ||
-      name.contains('/') || name.contains('\\') || name.contains(':') ||
-      name.contains(QChar::Null)) {
+  if (name.trimmed().isEmpty() || name == "." || name == ".." || name.contains('/') ||
+      name.contains('\\') || name.contains(':') || name.contains(QChar::Null)) {
     throw Failure(ExDataErr, QString("invalid %1 name: %2").arg(kind, name));
   }
 }
@@ -115,7 +114,8 @@ void writeAtomic(const QString& path, const QByteArray& bytes)
 
   QSaveFile file(path);
   if (!file.open(QIODevice::WriteOnly)) {
-    throw Failure(ExIoErr, QString("cannot write %1: %2").arg(path, file.errorString()));
+    throw Failure(ExIoErr,
+                  QString("cannot write %1: %2").arg(path, file.errorString()));
   }
   if (file.write(bytes) != bytes.size() || !file.commit()) {
     throw Failure(ExIoErr,
@@ -136,12 +136,12 @@ bool copyTree(const QString& source, const QString& target)
   QDirIterator it(source, QDir::AllEntries | QDir::NoDotAndDotDot,
                   QDirIterator::Subdirectories);
   while (it.hasNext()) {
-    const QString item = it.next();
+    const QString item   = it.next();
     const QFileInfo info = it.fileInfo();
     if (info.isSymLink()) {
       return false;
     }
-    const QString relative = QDir(source).relativeFilePath(item);
+    const QString relative    = QDir(source).relativeFilePath(item);
     const QString destination = QDir(target).filePath(relative);
     if (info.isDir()) {
       if (!QDir().mkpath(destination)) {
@@ -169,7 +169,7 @@ bool copyTreeOverlay(const QString& source, const QString& target)
   QDirIterator it(source, QDir::AllEntries | QDir::NoDotAndDotDot,
                   QDirIterator::Subdirectories);
   while (it.hasNext()) {
-    const QString item = it.next();
+    const QString item   = it.next();
     const QFileInfo info = it.fileInfo();
     if (info.isSymLink()) {
       return false;
@@ -206,7 +206,9 @@ bool isSafeRelative(QString path)
   }
   const auto components = path.split('/', Qt::SkipEmptyParts);
   return std::none_of(components.cbegin(), components.cend(),
-                      [](const QString& component) { return component == ".."; });
+                      [](const QString& component) {
+                        return component == "..";
+                      });
 }
 
 void validateExtractedTree(const QString& root);
@@ -231,9 +233,9 @@ void applyInstallPlan(const QString& extractedRoot, const QString& planPath,
   }
 
   for (const auto& value : mappings) {
-    const auto mapping = value.toObject();
+    const auto mapping           = value.toObject();
     const QString sourceRelative = mapping["source"].toString();
-    QString destinationRelative = mapping["destination"].toString(".");
+    QString destinationRelative  = mapping["destination"].toString(".");
     if (!isSafeRelative(sourceRelative) || !isSafeRelative(destinationRelative)) {
       throw Failure(ExDataErr, "install plan contains an unsafe relative path");
     }
@@ -375,7 +377,8 @@ class InstanceContext
 {
 public:
   InstanceContext(QString root, QString requestedProfile, bool requireIni = true)
-      : root(absoluteClean(std::move(root))), iniPath(QDir(this->root).filePath("ModOrganizer.ini"))
+      : root(absoluteClean(std::move(root))),
+        iniPath(QDir(this->root).filePath("ModOrganizer.ini"))
   {
     if (requireIni && !QFileInfo::exists(iniPath)) {
       throw Failure(ExConfig, QString("portable instance has no %1").arg(iniPath));
@@ -385,19 +388,21 @@ public:
       QSettings settings(iniPath, QSettings::IniFormat);
       base = resolve(settings.value("Settings/base_directory", this->root).toString(),
                      this->root);
-      mods = resolve(settings.value("Settings/mod_directory", "%BASE_DIR%/mods").toString(),
-                     base);
-      profiles = resolve(
-          settings.value("Settings/profiles_directory", "%BASE_DIR%/profiles").toString(),
-          base);
-      downloads = resolve(
-          settings.value("Settings/download_directory", "%BASE_DIR%/downloads").toString(),
-          base);
-      overwrite = resolve(
-          settings.value("Settings/overwrite_directory", "%BASE_DIR%/overwrite").toString(),
-          base);
-      gamePath = QString::fromUtf8(
-          settings.value("General/gamePath").toByteArray());
+      mods = resolve(
+          settings.value("Settings/mod_directory", "%BASE_DIR%/mods").toString(), base);
+      profiles =
+          resolve(settings.value("Settings/profiles_directory", "%BASE_DIR%/profiles")
+                      .toString(),
+                  base);
+      downloads =
+          resolve(settings.value("Settings/download_directory", "%BASE_DIR%/downloads")
+                      .toString(),
+                  base);
+      overwrite =
+          resolve(settings.value("Settings/overwrite_directory", "%BASE_DIR%/overwrite")
+                      .toString(),
+                  base);
+      gamePath = QString::fromUtf8(settings.value("General/gamePath").toByteArray());
       if (gamePath.isEmpty()) {
         gamePath = settings.value("General/gamePath").toString();
       }
@@ -427,7 +432,10 @@ public:
 
   QString modListPath() const { return QDir(profilePath()).filePath("modlist.txt"); }
   QString pluginsPath() const { return QDir(profilePath()).filePath("plugins.txt"); }
-  QString loadOrderPath() const { return QDir(profilePath()).filePath("loadorder.txt"); }
+  QString loadOrderPath() const
+  {
+    return QDir(profilePath()).filePath("loadorder.txt");
+  }
 
   void requireProfile() const
   {
@@ -466,8 +474,8 @@ bool isManagedTransactionPath(const QString& path, const InstanceContext& contex
 
   const auto isManagedSibling = [&path](const QString& managedDirectory) {
     const QString parent = QFileInfo(managedDirectory).absolutePath();
-    const QString relative = QDir::fromNativeSeparators(
-        QDir(parent).relativeFilePath(absoluteClean(path)));
+    const QString relative =
+        QDir::fromNativeSeparators(QDir(parent).relativeFilePath(absoluteClean(path)));
     return relative != ".." && !relative.startsWith("../") &&
            (relative.startsWith(".mo2-headless-stage-") ||
             relative.startsWith(".mo2-headless-trash/"));
@@ -481,8 +489,9 @@ public:
   Mutation(const InstanceContext& context, QString operation, bool dryRun)
       : m_context(context), m_operation(std::move(operation)), m_dryRun(dryRun)
   {
-    const QString stamp = QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmsszzzZ");
-    m_id = stamp + "-" + QUuid::createUuid().toString(QUuid::Id128).left(12);
+    const QString stamp =
+        QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmsszzzZ");
+    m_id      = stamp + "-" + QUuid::createUuid().toString(QUuid::Id128).left(12);
     m_journal = QDir(m_context.root).filePath("headless-journal/" + m_id);
     if (!m_dryRun && !QDir().mkpath(QDir(m_journal).filePath("files"))) {
       throw Failure(ExCantCreat, QString("cannot create journal %1").arg(m_journal));
@@ -518,7 +527,8 @@ public:
       throw Failure(ExNoInput, QString("move source does not exist: %1").arg(from));
     }
     if (!m_dryRun && QFileInfo::exists(to)) {
-      throw Failure(ExCantCreat, QString("move destination already exists: %1").arg(to));
+      throw Failure(ExCantCreat,
+                    QString("move destination already exists: %1").arg(to));
     }
     m_moves.push_back({{"from", absoluteClean(from)}, {"to", absoluteClean(to)}});
     if (!m_dryRun) {
@@ -590,20 +600,17 @@ private:
     for (const auto& move : m_moves) {
       moves.push_back(move);
     }
-    const QJsonObject manifest{{"schemaVersion", 1},
-                               {"id", m_id},
-                               {"operation", m_operation},
-                               {"instanceRoot", m_context.root},
-                               {"committed", committed},
-                               {"rolledBack", rolledBack},
-                               {"files", files},
-                               {"moves", moves}};
+    const QJsonObject manifest{
+        {"schemaVersion", 1},       {"id", m_id},
+        {"operation", m_operation}, {"instanceRoot", m_context.root},
+        {"committed", committed},   {"rolledBack", rolledBack},
+        {"files", files},           {"moves", moves}};
     writeAtomic(QDir(m_journal).filePath("transaction.json"), jsonBytes(manifest));
   }
 
   const InstanceContext& m_context;
   QString m_operation;
-  bool m_dryRun = false;
+  bool m_dryRun    = false;
   bool m_committed = false;
   QString m_id;
   QString m_journal;
@@ -688,12 +695,11 @@ void validateExtractedTree(const QString& root)
   bool any = false;
   while (it.hasNext()) {
     it.next();
-    any = true;
+    any                  = true;
     const QFileInfo info = it.fileInfo();
     if (info.isSymLink() || !isWithin(info.absoluteFilePath(), root)) {
-      throw Failure(ExDataErr,
-                    QString("archive contains a link or escaping path: %1")
-                        .arg(info.absoluteFilePath()));
+      throw Failure(ExDataErr, QString("archive contains a link or escaping path: %1")
+                                   .arg(info.absoluteFilePath()));
     }
   }
   if (!any) {
@@ -761,11 +767,10 @@ QByteArray runProcess(const QString& program, const QStringList& arguments,
     *stderrBytes = errors;
   }
   if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-    throw Failure(ExIoErr,
-                  QString("%1 exited with %2: %3")
-                      .arg(program)
-                      .arg(process.exitCode())
-                      .arg(QString::fromUtf8(errors).trimmed()));
+    throw Failure(ExIoErr, QString("%1 exited with %2: %3")
+                               .arg(program)
+                               .arg(process.exitCode())
+                               .arg(QString::fromUtf8(errors).trimmed()));
   }
   return output;
 }
@@ -774,7 +779,8 @@ void initInstance(const InstanceContext& context, const QString& gamePath,
                   const QString& gameName, bool dryRun)
 {
   if (QFileInfo::exists(context.iniPath)) {
-    throw Failure(ExCantCreat, QString("instance already exists: %1").arg(context.root));
+    throw Failure(ExCantCreat,
+                  QString("instance already exists: %1").arg(context.root));
   }
   if (!QFileInfo(gamePath).isDir()) {
     throw Failure(ExNoInput, QString("game path does not exist: %1").arg(gamePath));
@@ -782,9 +788,9 @@ void initInstance(const InstanceContext& context, const QString& gamePath,
   if (dryRun) {
     return;
   }
-  for (const auto& directory : {context.root, context.mods, context.profiles,
-                                context.downloads, context.overwrite,
-                                QDir(context.root).filePath("webcache")}) {
+  for (const auto& directory :
+       {context.root, context.mods, context.profiles, context.downloads,
+        context.overwrite, QDir(context.root).filePath("webcache")}) {
     if (!QDir().mkpath(directory)) {
       throw Failure(ExCantCreat, QString("cannot create %1").arg(directory));
     }
@@ -819,8 +825,7 @@ QJsonObject contextStatus(const InstanceContext& context)
           {"profiles", context.profiles},
           {"selectedProfile", context.profile},
           {"gamePath", context.gamePath},
-          {"modCount",
-           modsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot).size()},
+          {"modCount", modsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot).size()},
           {"profileCount",
            profilesDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot).size()}};
 }
@@ -833,10 +838,9 @@ void acquireLock(QLockFile& lock, int timeoutMs)
     QString host;
     QString app;
     lock.getLockInfo(&pid, &host, &app);
-    throw Failure(ExTempFail,
-                  QString("instance is locked by pid %1 (%2 on %3)")
-                      .arg(pid)
-                      .arg(app, host));
+    throw Failure(
+        ExTempFail,
+        QString("instance is locked by pid %1 (%2 on %3)").arg(pid).arg(app, host));
   }
 }
 
@@ -875,18 +879,16 @@ QJsonArray pluginEntriesJson(const QList<PluginEntry>& entries)
 {
   QJsonArray array;
   for (int i = 0; i < entries.size(); ++i) {
-    array.push_back(QJsonObject{{"name", entries[i].name},
-                                {"enabled", entries[i].enabled},
-                                {"priority", i}});
+    array.push_back(QJsonObject{
+        {"name", entries[i].name}, {"enabled", entries[i].enabled}, {"priority", i}});
   }
   return array;
 }
 
-void restoreTransaction(const InstanceContext& context, const QString& id,
-                        bool dryRun)
+void restoreTransaction(const InstanceContext& context, const QString& id, bool dryRun)
 {
   requireSafeName(id, "transaction");
-  const QString journal = QDir(context.root).filePath("headless-journal/" + id);
+  const QString journal      = QDir(context.root).filePath("headless-journal/" + id);
   const QString manifestPath = QDir(journal).filePath("transaction.json");
   if (!QFileInfo::exists(manifestPath)) {
     throw Failure(ExNoInput, QString("transaction does not exist: %1").arg(id));
@@ -896,8 +898,8 @@ void restoreTransaction(const InstanceContext& context, const QString& id,
     throw Failure(ExDataErr, "transaction manifest is invalid");
   }
   QJsonObject manifest = document.object();
-  if (manifest["instanceRoot"].toString().compare(context.root,
-                                                   Qt::CaseInsensitive) != 0) {
+  if (manifest["instanceRoot"].toString().compare(context.root, Qt::CaseInsensitive) !=
+      0) {
     throw Failure(ExDataErr, "transaction belongs to a different instance");
   }
   if (manifest["rolledBack"].toBool()) {
@@ -906,7 +908,7 @@ void restoreTransaction(const InstanceContext& context, const QString& id,
 
   const auto moves = manifest["moves"].toArray();
   for (auto it = moves.crbegin(); it != moves.crend(); ++it) {
-    const auto move = it->toObject();
+    const auto move    = it->toObject();
     const QString from = absoluteClean(move["from"].toString());
     const QString to   = absoluteClean(move["to"].toString());
     if (!isManagedTransactionPath(from, context) ||
@@ -922,7 +924,7 @@ void restoreTransaction(const InstanceContext& context, const QString& id,
   }
 
   for (const auto& value : manifest["files"].toArray()) {
-    const auto file = value.toObject();
+    const auto file    = value.toObject();
     const QString path = absoluteClean(file["path"].toString());
     if (!isManagedTransactionPath(path, context) &&
         path.compare(context.iniPath, Qt::CaseInsensitive) != 0) {
@@ -962,7 +964,8 @@ int main(int argc, char* argv[])
   parser.addHelpOption();
   parser.addVersionOption();
   parser.addOptions({
-      {{"r", "root"}, "Portable instance root (defaults to executable directory).",
+      {{"r", "root"},
+       "Portable instance root (defaults to executable directory).",
        "path"},
       {{"p", "profile"}, "Profile name.", "name"},
       {"dry-run", "Validate and report without changing state."},
@@ -978,13 +981,13 @@ int main(int argc, char* argv[])
       {"arguments", "Arguments for run, passed as one command-line string.", "text"},
       {"cwd", "Working directory for run.", "path"},
       {"overwrite", "Named output mod for a VFS run.", "mod"},
-      {"install-plan", "Deterministic JSON file mappings for a FOMOD archive.",
-       "path"},
+      {"install-plan", "Deterministic JSON file mappings for a FOMOD archive.", "path"},
       {"timeout", "Timeout in seconds for archive extraction or VFS run (0=none).",
        "seconds", "300"},
   });
   parser.addPositionalArgument("command", "Operation to perform.");
-  parser.addPositionalArgument("operands", "Operation-specific operands.", "[operands...]");
+  parser.addPositionalArgument("operands", "Operation-specific operands.",
+                               "[operands...]");
   parser.process(app);
 
   const QStringList positional = parser.positionalArguments();
@@ -992,12 +995,12 @@ int main(int argc, char* argv[])
     parser.showHelp(ExUsage);
   }
 
-  const QString command = positional[0].toLower();
+  const QString command      = positional[0].toLower();
   const QStringList operands = positional.mid(1);
-  const QString root = parser.value("root").isEmpty()
-                           ? QCoreApplication::applicationDirPath()
-                           : parser.value("root");
-  const bool dryRun = parser.isSet("dry-run");
+  const QString root         = parser.value("root").isEmpty()
+                                   ? QCoreApplication::applicationDirPath()
+                                   : parser.value("root");
+  const bool dryRun          = parser.isSet("dry-run");
 
   try {
     const bool init = command == "init";
@@ -1022,8 +1025,11 @@ int main(int argc, char* argv[])
       }
       initInstance(context, absoluteClean(operands[0]), parser.value("game-name"),
                    dryRun);
-      emitJson({{"ok", true}, {"operation", "init"}, {"dryRun", dryRun},
-                {"instanceRoot", context.root}, {"gamePath", absoluteClean(operands[0])}});
+      emitJson({{"ok", true},
+                {"operation", "init"},
+                {"dryRun", dryRun},
+                {"instanceRoot", context.root},
+                {"gamePath", absoluteClean(operands[0])}});
       return 0;
     }
 
@@ -1032,10 +1038,10 @@ int main(int argc, char* argv[])
       const QDir dir(context.profiles);
       for (const auto& info : dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot,
                                                 QDir::Name | QDir::IgnoreCase)) {
-        profiles.push_back(QJsonObject{{"name", info.fileName()},
-                                       {"selected", info.fileName().compare(
-                                                            context.profile,
-                                                            Qt::CaseInsensitive) == 0}});
+        profiles.push_back(QJsonObject{
+            {"name", info.fileName()},
+            {"selected",
+             info.fileName().compare(context.profile, Qt::CaseInsensitive) == 0}});
       }
       emitJson({{"ok", true}, {"operation", "profile-list"}, {"profiles", profiles}});
       return 0;
@@ -1061,8 +1067,11 @@ int main(int argc, char* argv[])
         }
       }
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"profile", name},
-                {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"profile", name},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
@@ -1102,8 +1111,11 @@ int main(int argc, char* argv[])
         }
       }
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"profile", name},
-                {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"profile", name},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
@@ -1126,15 +1138,21 @@ int main(int argc, char* argv[])
               .filePath(".mo2-headless-trash/" + tx.id() + "-profile-" + name);
       tx.move(existing, trash);
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"profile", name},
-                {"trash", trash}, {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"profile", name},
+                {"trash", trash},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
     context.requireProfile();
 
     if (command == "mod-list") {
-      emitJson({{"ok", true}, {"operation", command}, {"profile", context.profile},
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"profile", context.profile},
                 {"mods", modEntriesJson(readModList(context.modListPath()))}});
       return 0;
     }
@@ -1151,19 +1169,19 @@ int main(int argc, char* argv[])
         throw Failure(ExNoInput, QString("mod directory does not exist: %1").arg(name));
       }
       auto entries = readModList(context.modListPath());
-      int index = findModEntry(entries, name);
+      int index    = findModEntry(entries, name);
       if (index < 0) {
         entries.prepend({name, false, '-'});
         index = 0;
       }
       if (command == "mod-priority") {
-        bool okay = false;
+        bool okay    = false;
         int priority = operands[1].toInt(&okay);
         if (!okay || priority < 0) {
           throw Failure(ExDataErr, "mod priority must be a non-negative integer");
         }
-        const auto entry = entries.takeAt(index);
-        priority = std::min(priority, entries.size());
+        const auto entry    = entries.takeAt(index);
+        priority            = std::min(priority, entries.size());
         const int fileIndex = entries.size() - priority;
         entries.insert(fileIndex, entry);
       } else {
@@ -1173,8 +1191,11 @@ int main(int argc, char* argv[])
       Mutation tx(context, command, dryRun);
       tx.write(context.modListPath(), serializeModList(entries));
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"mod", name},
-                {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"mod", name},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
@@ -1183,18 +1204,17 @@ int main(int argc, char* argv[])
         throw Failure(ExUsage, command + " requires SOURCE_OR_ARCHIVE NAME");
       }
       const QString source = absoluteClean(operands[0]);
-      const QString name = operands[1];
+      const QString name   = operands[1];
       requireSafeName(name, "mod");
       if (!QFileInfo::exists(source)) {
         throw Failure(ExNoInput, QString("source does not exist: %1").arg(source));
       }
       Mutation tx(context, command, dryRun);
-      const QString stageParent =
-          QDir(QFileInfo(context.mods).absolutePath()).filePath(
-              ".mo2-headless-stage-" + tx.id());
-      const QString stage = QDir(stageParent).filePath("content");
-      const QString target = QDir(context.mods).filePath(name);
-      const QString existing = findModDirectory(context, name);
+      const QString stageParent = QDir(QFileInfo(context.mods).absolutePath())
+                                      .filePath(".mo2-headless-stage-" + tx.id());
+      const QString stage       = QDir(stageParent).filePath("content");
+      const QString target      = QDir(context.mods).filePath(name);
+      const QString existing    = findModDirectory(context, name);
       if (!existing.isEmpty() && !parser.isSet("replace")) {
         throw Failure(ExCantCreat, QString("mod already exists: %1").arg(name));
       }
@@ -1208,8 +1228,8 @@ int main(int argc, char* argv[])
             throw Failure(ExIoErr, "cannot copy source directory or it contains links");
           }
         } else {
-          const int seconds = parser.value("timeout").toInt();
-          const int timeout = seconds <= 0 ? -1 : seconds * 1000;
+          const int seconds        = parser.value("timeout").toInt();
+          const int timeout        = seconds <= 0 ? -1 : seconds * 1000;
           const QByteArray listing = runProcess("tar.exe", {"-tf", source}, timeout);
           validateArchiveListing(listing);
           runProcess("tar.exe", {"-xf", source, "-C", stage}, timeout);
@@ -1226,7 +1246,8 @@ int main(int argc, char* argv[])
       if (parser.isSet("install-plan")) {
         const QString plan = absoluteClean(parser.value("install-plan"));
         if (!QFileInfo::exists(plan)) {
-          throw Failure(ExNoInput, QString("install plan does not exist: %1").arg(plan));
+          throw Failure(ExNoInput,
+                        QString("install plan does not exist: %1").arg(plan));
         }
         installRoot = QDir(stageParent).filePath("resolved");
         if (!dryRun) {
@@ -1235,10 +1256,9 @@ int main(int argc, char* argv[])
       }
       QString contentRoot = dryRun ? installRoot : normalizedContentRoot(installRoot);
       if (!existing.isEmpty()) {
-        const QString trash =
-            QDir(QFileInfo(context.mods).absolutePath())
-                .filePath(".mo2-headless-trash/" + tx.id() + "-" +
-                          QFileInfo(existing).fileName());
+        const QString trash = QDir(QFileInfo(context.mods).absolutePath())
+                                  .filePath(".mo2-headless-trash/" + tx.id() + "-" +
+                                            QFileInfo(existing).fileName());
         tx.move(existing, trash);
       }
       tx.move(contentRoot, target);
@@ -1253,7 +1273,7 @@ int main(int argc, char* argv[])
       }
 
       auto entries = readModList(context.modListPath());
-      int index = findModEntry(entries, name);
+      int index    = findModEntry(entries, name);
       if (index >= 0) {
         entries.removeAt(index);
       }
@@ -1261,7 +1281,7 @@ int main(int argc, char* argv[])
       int priority = entries.size();
       if (parser.isSet("priority")) {
         bool okay = false;
-        priority = parser.value("priority").toInt(&okay);
+        priority  = parser.value("priority").toInt(&okay);
         if (!okay || priority < 0) {
           throw Failure(ExDataErr, "priority must be a non-negative integer");
         }
@@ -1270,9 +1290,13 @@ int main(int argc, char* argv[])
       entries.insert(entries.size() - priority, entry);
       tx.write(context.modListPath(), serializeModList(entries));
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"mod", name},
-                {"enabled", entry.enabled}, {"priority", priority},
-                {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"mod", name},
+                {"enabled", entry.enabled},
+                {"priority", priority},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
@@ -1287,16 +1311,16 @@ int main(int argc, char* argv[])
         throw Failure(ExNoInput, QString("mod does not exist: %1").arg(name));
       }
       Mutation tx(context, command, dryRun);
-      const QString trash =
-          QDir(QFileInfo(context.mods).absolutePath())
-              .filePath(".mo2-headless-trash/" + tx.id() + "-" +
-                        QFileInfo(existing).fileName());
+      const QString trash = QDir(QFileInfo(context.mods).absolutePath())
+                                .filePath(".mo2-headless-trash/" + tx.id() + "-" +
+                                          QFileInfo(existing).fileName());
       tx.move(existing, trash);
       const QDir profiles(context.profiles);
       for (const auto& profileInfo :
            profiles.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        const QString listPath = QDir(profileInfo.absoluteFilePath()).filePath("modlist.txt");
-        auto entries = readModList(listPath);
+        const QString listPath =
+            QDir(profileInfo.absoluteFilePath()).filePath("modlist.txt");
+        auto entries    = readModList(listPath);
         const int index = findModEntry(entries, name);
         if (index >= 0) {
           entries.removeAt(index);
@@ -1304,22 +1328,30 @@ int main(int argc, char* argv[])
         }
       }
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"mod", name},
-                {"trash", trash}, {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"mod", name},
+                {"trash", trash},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
     if (command == "plugin-list") {
       const auto entries = readPluginList(context.pluginsPath());
-      const auto discovered = discoverPlugins(context, readModList(context.modListPath()));
+      const auto discovered =
+          discoverPlugins(context, readModList(context.modListPath()));
       QJsonArray plugins = pluginEntriesJson(entries);
-      emitJson({{"ok", true}, {"operation", command}, {"profile", context.profile},
-                {"plugins", plugins}, {"discoveredCount", discovered.size()}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"profile", context.profile},
+                {"plugins", plugins},
+                {"discoveredCount", discovered.size()}});
       return 0;
     }
 
     if (command == "snapshot") {
-      const auto mods = readModList(context.modListPath());
+      const auto mods    = readModList(context.modListPath());
       const auto plugins = readPluginList(context.pluginsPath());
       emitJson({{"ok", true},
                 {"operation", command},
@@ -1336,7 +1368,7 @@ int main(int argc, char* argv[])
         throw Failure(ExUsage, "apply requires MANIFEST_JSON");
       }
       const QString manifestPath = absoluteClean(operands[0]);
-      const auto document = QJsonDocument::fromJson(readFile(manifestPath));
+      const auto document        = QJsonDocument::fromJson(readFile(manifestPath));
       if (!document.isObject()) {
         throw Failure(ExDataErr, "state manifest must be a JSON object");
       }
@@ -1345,38 +1377,38 @@ int main(int argc, char* argv[])
         throw Failure(ExDataErr, "unsupported state manifest schemaVersion");
       }
       if (object.contains("profile") &&
-          object["profile"].toString().compare(context.profile,
-                                                Qt::CaseInsensitive) != 0) {
+          object["profile"].toString().compare(context.profile, Qt::CaseInsensitive) !=
+              0) {
         throw Failure(ExDataErr, "manifest profile does not match selected profile");
       }
 
       QList<QPair<int, ModEntry>> plannedMods;
       QSet<QString> modNames;
       for (const auto& value : object["mods"].toArray()) {
-        const auto mod = value.toObject();
+        const auto mod     = value.toObject();
         const QString name = mod["name"].toString();
         requireSafeName(name, "mod");
         if (modNames.contains(name.toLower())) {
           throw Failure(ExDataErr, QString("duplicate mod in manifest: %1").arg(name));
         }
         if (findModDirectory(context, name).isEmpty()) {
-          throw Failure(ExNoInput, QString("manifest mod is not installed: %1").arg(name));
+          throw Failure(ExNoInput,
+                        QString("manifest mod is not installed: %1").arg(name));
         }
         modNames.insert(name.toLower());
         plannedMods.push_back(
-            {mod["priority"].toInt(-1),
-             ModEntry{name, mod["enabled"].toBool(),
-                      mod["enabled"].toBool() ? '+' : '-'}});
+            {mod["priority"].toInt(-1), ModEntry{name, mod["enabled"].toBool(),
+                                                 mod["enabled"].toBool() ? '+' : '-'}});
       }
-      std::sort(plannedMods.begin(), plannedMods.end(), [](const auto& a, const auto& b) {
-        return a.first > b.first;
-      });
+      std::sort(plannedMods.begin(), plannedMods.end(),
+                [](const auto& a, const auto& b) {
+                  return a.first > b.first;
+                });
       QList<ModEntry> modEntries;
       int previousPriority = std::numeric_limits<int>::max();
       for (const auto& [priority, entry] : plannedMods) {
         if (priority < 0 || priority >= previousPriority) {
-          throw Failure(ExDataErr,
-                        "mod priorities must be unique non-negative values");
+          throw Failure(ExDataErr, "mod priorities must be unique non-negative values");
         }
         previousPriority = priority;
         modEntries.push_back(entry);
@@ -1386,7 +1418,7 @@ int main(int argc, char* argv[])
       QSet<QString> pluginNames;
       const auto discovered = discoverPlugins(context, modEntries);
       for (const auto& value : object["plugins"].toArray()) {
-        const auto plugin = value.toObject();
+        const auto plugin  = value.toObject();
         const QString name = plugin["name"].toString();
         requireSafeName(name, "plugin");
         if (pluginNames.contains(name.toLower())) {
@@ -1394,17 +1426,18 @@ int main(int argc, char* argv[])
                         QString("duplicate plugin in manifest: %1").arg(name));
         }
         if (!discovered.contains(name.toLower())) {
-          throw Failure(ExNoInput,
-                        QString("manifest plugin is not in the effective tree: %1")
-                            .arg(name));
+          throw Failure(
+              ExNoInput,
+              QString("manifest plugin is not in the effective tree: %1").arg(name));
         }
         pluginNames.insert(name.toLower());
-        plannedPlugins.push_back(
-            {plugin["priority"].toInt(-1),
-             PluginEntry{name, plugin["enabled"].toBool()}});
+        plannedPlugins.push_back({plugin["priority"].toInt(-1),
+                                  PluginEntry{name, plugin["enabled"].toBool()}});
       }
       std::sort(plannedPlugins.begin(), plannedPlugins.end(),
-                [](const auto& a, const auto& b) { return a.first < b.first; });
+                [](const auto& a, const auto& b) {
+                  return a.first < b.first;
+                });
       QList<PluginEntry> pluginEntries;
       previousPriority = -1;
       for (const auto& [priority, entry] : plannedPlugins) {
@@ -1425,9 +1458,12 @@ int main(int argc, char* argv[])
       }
       tx.write(context.loadOrderPath(), loadOrder);
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command},
-                {"profile", context.profile}, {"modCount", modEntries.size()},
-                {"pluginCount", pluginEntries.size()}, {"transaction", tx.id()},
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"profile", context.profile},
+                {"modCount", modEntries.size()},
+                {"pluginCount", pluginEntries.size()},
+                {"transaction", tx.id()},
                 {"dryRun", dryRun}});
       return 0;
     }
@@ -1440,27 +1476,27 @@ int main(int argc, char* argv[])
       }
       const QString name = operands[0];
       requireSafeName(name, "plugin");
-      const auto mods = readModList(context.modListPath());
+      const auto mods       = readModList(context.modListPath());
       const auto discovered = discoverPlugins(context, mods);
       if (!discovered.contains(name.toLower())) {
-        throw Failure(ExNoInput,
-                      QString("plugin is not present in the effective data tree: %1")
-                          .arg(name));
+        throw Failure(
+            ExNoInput,
+            QString("plugin is not present in the effective data tree: %1").arg(name));
       }
       auto entries = readPluginList(context.pluginsPath());
-      int index = findPluginEntry(entries, name);
+      int index    = findPluginEntry(entries, name);
       if (index < 0) {
         entries.push_back({name, false});
         index = entries.size() - 1;
       }
       if (command == "plugin-priority") {
-        bool okay = false;
+        bool okay    = false;
         int priority = operands[1].toInt(&okay);
         if (!okay || priority < 0) {
           throw Failure(ExDataErr, "plugin priority must be a non-negative integer");
         }
         const auto entry = entries.takeAt(index);
-        priority = std::min(priority, entries.size());
+        priority         = std::min(priority, entries.size());
         entries.insert(priority, entry);
       } else {
         entries[index].enabled = command == "plugin-enable";
@@ -1473,8 +1509,11 @@ int main(int argc, char* argv[])
       }
       tx.write(context.loadOrderPath(), loadOrder);
       tx.commit();
-      emitJson({{"ok", true}, {"operation", command}, {"plugin", name},
-                {"transaction", tx.id()}, {"dryRun", dryRun}});
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"plugin", name},
+                {"transaction", tx.id()},
+                {"dryRun", dryRun}});
       return 0;
     }
 
@@ -1496,7 +1535,7 @@ int main(int argc, char* argv[])
         }
       }
       const auto discovered = discoverPlugins(context, mods);
-      const auto plugins = readPluginList(context.pluginsPath());
+      const auto plugins    = readPluginList(context.pluginsPath());
       for (const auto& plugin : plugins) {
         if (!discovered.contains(plugin.name.toLower())) {
           errors.push_back("plugins.txt references missing plugin: " + plugin.name);
@@ -1506,8 +1545,10 @@ int main(int argc, char* argv[])
       for (const auto& error : errors) {
         jsonErrors.push_back(error);
       }
-      emitJson({{"ok", errors.isEmpty()}, {"operation", command},
-                {"profile", context.profile}, {"errors", jsonErrors}},
+      emitJson({{"ok", errors.isEmpty()},
+                {"operation", command},
+                {"profile", context.profile},
+                {"errors", jsonErrors}},
                !errors.isEmpty());
       return errors.isEmpty() ? 0 : ExDataErr;
     }
@@ -1517,7 +1558,9 @@ int main(int argc, char* argv[])
         throw Failure(ExUsage, "rollback requires TRANSACTION_ID");
       }
       restoreTransaction(context, operands[0], dryRun);
-      emitJson({{"ok", true}, {"operation", command}, {"transaction", operands[0]},
+      emitJson({{"ok", true},
+                {"operation", command},
+                {"transaction", operands[0]},
                 {"dryRun", dryRun}});
       return 0;
     }
@@ -1528,7 +1571,8 @@ int main(int argc, char* argv[])
       }
       const QString mo = QDir(context.root).filePath("ModOrganizer.exe");
       if (!QFileInfo::exists(mo)) {
-        throw Failure(ExNoInput, QString("ModOrganizer.exe not found in %1").arg(context.root));
+        throw Failure(ExNoInput,
+                      QString("ModOrganizer.exe not found in %1").arg(context.root));
       }
       QStringList arguments{"--logs", "-p", context.profile, "headless-run"};
       if (parser.isSet("arguments")) {
@@ -1548,9 +1592,9 @@ int main(int argc, char* argv[])
       process.setWorkingDirectory(context.root);
       process.start();
       if (!process.waitForStarted(30000)) {
-        throw Failure(ExNoInput,
-                      QString("cannot start ModOrganizer.exe: %1")
-                          .arg(process.errorString()));
+        throw Failure(
+            ExNoInput,
+            QString("cannot start ModOrganizer.exe: %1").arg(process.errorString()));
       }
       const int seconds = parser.value("timeout").toInt();
       const int timeout = seconds <= 0 ? -1 : seconds * 1000;
@@ -1561,10 +1605,12 @@ int main(int argc, char* argv[])
       }
       const QByteArray childOut = process.readAllStandardOutput();
       const QByteArray childErr = process.readAllStandardError();
-      const int exitCode = process.exitCode();
+      const int exitCode        = process.exitCode();
       emitJson({{"ok", process.exitStatus() == QProcess::NormalExit && exitCode == 0},
-                {"operation", command}, {"program", operands[0]},
-                {"exitCode", exitCode}, {"stdout", QString::fromUtf8(childOut)},
+                {"operation", command},
+                {"program", operands[0]},
+                {"exitCode", exitCode},
+                {"stdout", QString::fromUtf8(childOut)},
                 {"stderr", QString::fromUtf8(childErr)}},
                exitCode != 0);
       return exitCode;
@@ -1572,13 +1618,18 @@ int main(int argc, char* argv[])
 
     throw Failure(ExUsage, QString("unknown command: %1").arg(command));
   } catch (const Failure& e) {
-    emitJson({{"ok", false}, {"operation", command},
-              {"error", QString::fromUtf8(e.what())}, {"exitCode", e.code()}},
+    emitJson({{"ok", false},
+              {"operation", command},
+              {"error", QString::fromUtf8(e.what())},
+              {"exitCode", e.code()}},
              true);
     return e.code();
   } catch (const std::exception& e) {
-    emitJson({{"ok", false}, {"operation", command},
-              {"error", QString::fromUtf8(e.what())}, {"exitCode", 70}}, true);
+    emitJson({{"ok", false},
+              {"operation", command},
+              {"error", QString::fromUtf8(e.what())},
+              {"exitCode", 70}},
+             true);
     return 70;
   }
 }
