@@ -23,6 +23,11 @@ set_target_properties(organizer PROPERTIES
 	OUTPUT_NAME "ModOrganizer"
 	WIN32_EXECUTABLE TRUE)
 
+add_executable(mo2-headless headless/main.cpp)
+set_target_properties(mo2-headless PROPERTIES OUTPUT_NAME "MO2Headless")
+mo2_configure_target(mo2-headless WARNINGS 4 TRANSLATIONS OFF)
+target_link_libraries(mo2-headless PRIVATE Qt6::Core)
+
 # disable translations because we want to be able to install somewhere else if
 # required
 mo2_configure_target(organizer WARNINGS 4 TRANSLATIONS OFF)
@@ -69,6 +74,7 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/markdown.html"
 
 # install ModOrganizer.exe itself
 install(FILES $<TARGET_FILE:organizer> DESTINATION ${_bin})
+install(FILES $<TARGET_FILE:mo2-headless> DESTINATION ${_bin})
 
 # install dependencies DLLs
 install(FILES $<TARGET_FILE:mo2::libbsarch> DESTINATION ${_bin}/dlls)
@@ -97,7 +103,7 @@ endif()
 
 mo2_deploy_qt(
 	DIRECTORY ${_bin}
-	BINARIES ModOrganizer.exe $<TARGET_FILE_NAME:mo2::uibase>)
+	BINARIES ModOrganizer.exe MO2Headless.exe $<TARGET_FILE_NAME:mo2::uibase>)
 
 # set source groups for VS
 mo2_add_filter(NAME src/application GROUPS

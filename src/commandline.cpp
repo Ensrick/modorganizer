@@ -11,6 +11,8 @@
 #include <report.h>
 
 #include <boost/optional/optional_io.hpp>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace cl
 {
@@ -52,8 +54,8 @@ CommandLine::CommandLine() : m_command(nullptr)
 {
   createOptions();
 
-  add<RunCommand, ReloadPluginCommand, DownloadFileCommand, RefreshCommand,
-      CrashDumpCommand, LaunchCommand>();
+  add<RunCommand, HeadlessRunCommand, ReloadPluginCommand, DownloadFileCommand,
+      RefreshCommand, CrashDumpCommand, LaunchCommand>();
 }
 
 std::optional<int> CommandLine::process(const std::wstring& line)
@@ -803,6 +805,98 @@ std::optional<int> RunCommand::runPostOrganizer(OrganizerCore& core)
             .arg(e.what()));
 
     return 1;
+  }
+}
+
+Command::Meta HeadlessRunCommand::meta() const
+{
+  return {"headless-run", "runs a program through USVFS without any MO2 window",
+          "[options] PROGRAM",
+          "Runs PROGRAM through the selected profile's virtual filesystem, waits for "
+          "completion, writes one JSON result to stdout, and returns the child exit "
+          "code. This command never forwards to an already-running MO2 process."};
+}
+
+po::options_description HeadlessRunCommand::getVisibleOptions() const
+{
+  po::options_description d;
+  d.add_options()("arguments,a", po::value<std::string>(),
+                  "command-line arguments passed verbatim")(
+      "cwd,c", po::value<std::string>(), "working directory override")(
+      "overwrite,o", po::value<std::string>(),
+      "write output into this named mod instead of Overwrite");
+  return d;
+}
+
+po::options_description HeadlessRunCommand::getInternalOptions() const
+{
+  po::options_description d;
+  d.add_options()("PROGRAM", po::value<std::string>()->required(),
+                  "program path or configured executable name");
+  return d;
+}
+
+po::positional_options_description HeadlessRunCommand::getPositional() const
+{
+  po::positional_options_description d;
+  d.add("PROGRAM", 1);
+  return d;
+}
+
+bool HeadlessRunCommand::canForwardToPrimary() const
+{
+  return false;
+}
+
+std::optional<int> HeadlessRunCommand::runPostOrganizer(OrganizerCore& core)
+{
+  const auto program = QString::fromStdString(vm()["PROGRAM"].as<std::string>());
+
+  try {
+    auto runner = core.processRunner();
+    runner.setFromFileOrExecutable(program, {});
+
+    if (vm().count("arguments")) {
+      runner.setArguments(QString::fromStdString(vm()["arguments"].as<std::string>()));
+    }
+    if (vm().count("cwd")) {
+      runner.setCurrentDirectory(QString::fromStdString(vm()["cwd"].as<std::string>()));
+    }
+    if (vm().count("overwrite")) {
+      runner.setCustomOverwrite(
+          QString::fromStdString(vm()["overwrite"].as<std::string>()));
+    }
+
+    runner.setWaitForCompletion(ProcessRunner::ForCommandLine,
+                                UILocker::PreventExit);
+    const auto result = runner.run();
+    if (result != ProcessRunner::Completed) {
+      env::Console console;
+      const QJsonObject output{{"ok", false},
+                               {"operation", "headless-run"},
+                               {"error", "process did not complete"}};
+      std::cerr << QJsonDocument(output).toJson(QJsonDocument::Compact).constData()
+                << "\n";
+      return 70;
+    }
+
+    const DWORD childExit = runner.exitCode();
+    env::Console console;
+    const QJsonObject output{{"ok", true},
+                             {"operation", "headless-run"},
+                             {"program", program},
+                             {"exitCode", static_cast<qint64>(childExit)}};
+    std::cout << QJsonDocument(output).toJson(QJsonDocument::Compact).constData()
+              << "\n";
+    return static_cast<int>(childExit & 0x7fffffff);
+  } catch (const std::exception& e) {
+    env::Console console;
+    const QJsonObject output{{"ok", false},
+                             {"operation", "headless-run"},
+                             {"error", QString::fromUtf8(e.what())}};
+    std::cerr << QJsonDocument(output).toJson(QJsonDocument::Compact).constData()
+              << "\n";
+    return 70;
   }
 }
 

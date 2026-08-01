@@ -191,6 +191,21 @@ protected:
   std::optional<int> runPostOrganizer(OrganizerCore& core) override;
 };
 
+// Runs a program through USVFS without displaying dialogs and propagates the
+// child process exit code. Intended for MO2Headless and other automation.
+class HeadlessRunCommand : public Command
+{
+protected:
+  Meta meta() const override;
+
+  po::options_description getVisibleOptions() const override;
+  po::options_description getInternalOptions() const override;
+  po::positional_options_description getPositional() const override;
+
+  bool canForwardToPrimary() const override;
+  std::optional<int> runPostOrganizer(OrganizerCore& core) override;
+};
+
 // reloads the given plugin
 //
 class ReloadPluginCommand : public Command
