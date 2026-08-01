@@ -405,14 +405,14 @@ public:
           resolve(settings.value("Settings/overwrite_directory", "%BASE_DIR%/overwrite")
                       .toString(),
                   base);
-      gamePath = QString::fromUtf8(settings.value("General/gamePath").toByteArray());
+      gamePath = QString::fromUtf8(settings.value("gamePath").toByteArray());
       if (gamePath.isEmpty()) {
-        gamePath = settings.value("General/gamePath").toString();
+        gamePath = settings.value("gamePath").toString();
       }
       profile = requestedProfile;
       if (profile.isEmpty()) {
         profile = QString::fromUtf8(
-            settings.value("General/selected_profile", "Default").toByteArray());
+            settings.value("selected_profile", "Default").toByteArray());
       }
       if (profile.isEmpty()) {
         profile = "Default";
@@ -801,9 +801,9 @@ void initInstance(const InstanceContext& context, const QString& gamePath,
   ensureProfileFiles(QDir(context.profiles).filePath("Default"));
 
   QSettings settings(context.iniPath, QSettings::IniFormat);
-  settings.setValue("General/gameName", gameName);
-  settings.setValue("General/gamePath", QDir::toNativeSeparators(gamePath).toUtf8());
-  settings.setValue("General/selected_profile", QByteArray("Default"));
+  settings.setValue("gameName", gameName);
+  settings.setValue("gamePath", QDir::toNativeSeparators(gamePath).toUtf8());
+  settings.setValue("selected_profile", QByteArray("Default"));
   settings.setValue("Settings/base_directory", QDir::toNativeSeparators(context.root));
   settings.setValue("Settings/download_directory", "%BASE_DIR%/downloads");
   settings.setValue("Settings/mod_directory", "%BASE_DIR%/mods");
@@ -1063,7 +1063,7 @@ int main(int argc, char* argv[])
       tx.write(context.iniPath, readFile(context.iniPath));
       if (!dryRun) {
         QSettings settings(context.iniPath, QSettings::IniFormat);
-        settings.setValue("General/selected_profile", name.toUtf8());
+        settings.setValue("selected_profile", name.toUtf8());
         settings.sync();
         if (settings.status() != QSettings::NoError) {
           throw Failure(ExIoErr, "cannot update selected profile");
@@ -1109,7 +1109,7 @@ int main(int argc, char* argv[])
         tx.write(context.iniPath, readFile(context.iniPath));
         if (!dryRun) {
           QSettings settings(context.iniPath, QSettings::IniFormat);
-          settings.setValue("General/selected_profile", name.toUtf8());
+          settings.setValue("selected_profile", name.toUtf8());
           settings.sync();
         }
       }
@@ -1268,9 +1268,9 @@ int main(int argc, char* argv[])
 
       if (!dryRun) {
         QSettings meta(QDir(target).filePath("meta.ini"), QSettings::IniFormat);
-        meta.setValue("General/installationFile", source);
-        meta.setValue("General/installedBy", "MO2Headless");
-        meta.setValue("General/installedAt",
+        meta.setValue("installationFile", source);
+        meta.setValue("installedBy", "MO2Headless");
+        meta.setValue("installedAt",
                       QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
         meta.sync();
       }
