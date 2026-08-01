@@ -76,6 +76,9 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/markdown.html"
 # install ModOrganizer.exe itself
 install(FILES $<TARGET_FILE:organizer> DESTINATION ${_bin})
 install(FILES $<TARGET_FILE:mo2-headless> DESTINATION ${_bin})
+# MO2's side-by-side DLL manifest resolves Qt for the GUI through dlls/, but
+# the standalone console controller imports Qt6Core directly at process start.
+install(FILES $<TARGET_FILE:Qt6::Core> DESTINATION ${_bin})
 install(FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/headless/README.md
 	${CMAKE_CURRENT_SOURCE_DIR}/headless/state.schema.json
