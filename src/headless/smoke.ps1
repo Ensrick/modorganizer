@@ -43,13 +43,13 @@ $plan = Join-Path $fixtureRoot 'plan.json'
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $plan
 
 Invoke-Headless init $GamePath | Out-Null
-Invoke-Headless profile-create Automation --clone Default --select | Out-Null
-$stage = Invoke-Headless -p Automation mod-stage $basic 'Basic Fixture' --enable
-Invoke-Headless -p Automation plugin-enable HeadlessSmoke.esp | Out-Null
-$disable = Invoke-Headless -p Automation mod-disable 'Basic Fixture'
+Invoke-Headless profile-create Automation '--clone' Default '--select' | Out-Null
+$stage = Invoke-Headless '-p' Automation mod-stage $basic 'Basic Fixture' '--enable'
+Invoke-Headless '-p' Automation plugin-enable HeadlessSmoke.esp | Out-Null
+$disable = Invoke-Headless '-p' Automation mod-disable 'Basic Fixture'
 Invoke-Headless rollback $disable.transaction | Out-Null
-Invoke-Headless -p Automation mod-install $archive 'Planned Fixture' --install-plan $plan --enable | Out-Null
-Invoke-Headless -p Automation audit | Out-Null
+Invoke-Headless '-p' Automation mod-install $archive 'Planned Fixture' '--install-plan' $plan '--enable' | Out-Null
+Invoke-Headless '-p' Automation audit | Out-Null
 
 if (-not $SkipVfs) {
     $text = & $controller -p Automation --timeout 30 run "$env:SystemRoot\System32\cmd.exe" --arguments '/d /c exit 7'
