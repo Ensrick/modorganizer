@@ -928,11 +928,11 @@ QJsonArray modEntriesJson(const QList<ModEntry>& entries)
   int managedIndex       = 0;
   for (int i = 0; i < entries.size(); ++i) {
     const bool managed = entries[i].marker != '*';
-    array.push_back(QJsonObject{{"name", entries[i].name},
-                                {"enabled", entries[i].enabled},
-                                {"managed", managed},
-                                {"priority",
-                                 managed ? managedCount - managedIndex++ - 1 : -1}});
+    array.push_back(
+        QJsonObject{{"name", entries[i].name},
+                    {"enabled", entries[i].enabled},
+                    {"managed", managed},
+                    {"priority", managed ? managedCount - managedIndex++ - 1 : -1}});
   }
   return array;
 }
@@ -1035,8 +1035,7 @@ int main(int argc, char* argv[])
       {"game-name", "MO2 game plugin name used by init.", "name",
        "Skyrim Special Edition"},
       {"game-edition",
-       "MO2 game edition used by init (auto-detects Steam, GOG, or Epic).",
-       "edition"},
+       "MO2 game edition used by init (auto-detects Steam, GOG, or Epic).", "edition"},
       {"clone", "Profile to clone.", "profile"},
       {"select", "Select a newly-created profile."},
       {"enable", "Enable a staged/installed mod in the selected profile."},
@@ -1088,7 +1087,7 @@ int main(int argc, char* argv[])
       if (operands.size() != 1) {
         throw Failure(ExUsage, "init requires GAME_PATH");
       }
-      const QString gamePath = absoluteClean(operands[0]);
+      const QString gamePath    = absoluteClean(operands[0]);
       const QString gameEdition = parser.value("game-edition").isEmpty()
                                       ? detectGameEdition(gamePath)
                                       : parser.value("game-edition");
@@ -1424,7 +1423,7 @@ int main(int argc, char* argv[])
     }
 
     if (command == "snapshot") {
-      const auto mods = managedModEntries(readModList(context.modListPath()));
+      const auto mods    = managedModEntries(readModList(context.modListPath()));
       const auto plugins = readPluginList(context.pluginsPath());
       emitJson({{"ok", true},
                 {"operation", command},
